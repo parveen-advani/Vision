@@ -1,0 +1,441 @@
+.session-brief {
+  margin: 0 0 24px;
+  border: 1px solid #dce3d6;
+  border-radius: 12px;
+  background: #fdfefb;
+  color: #2e4032;
+  overflow: hidden;
+}
+.brief-summary {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px 20px;
+  list-style: none;
+  cursor: pointer;
+  min-height: 76px;
+}
+.brief-summary::-webkit-details-marker {
+  display: none;
+}
+.brief-summary:hover {
+  background: #f3f6ee;
+}
+.brief-summary-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  background: #eaf0e1;
+  color: #587449;
+}
+.brief-summary-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.brief-summary-copy strong {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.brief-summary-copy > span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #68765f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 550px;
+}
+.brief-summary-meta {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: 11px;
+  color: #65735d;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.brief-chevron {
+  flex-shrink: 0;
+  color: #6b7c5e;
+  transition: transform 0.18s ease;
+}
+.session-brief[open] .brief-chevron {
+  transform: rotate(180deg);
+}
+.session-brief[open] .brief-summary {
+  border-bottom: 1px solid #e4e9de;
+}
+.brief-fields {
+  border: 0;
+  margin: 0;
+  padding: 22px;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+.brief-fields:disabled {
+  opacity: 0.72;
+}
+.brief-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.brief-field label,
+.brief-notes-label label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3e5239;
+  line-height: 1.4;
+}
+.brief-field input,
+.brief-field select,
+.brief-field textarea,
+.brief-preview textarea {
+  width: 100%;
+  border: 1px solid #d7e0cf;
+  border-radius: 7px;
+  background: #fff;
+  color: #30432f;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  outline-offset: 3px;
+  min-width: 0;
+}
+.brief-field input::placeholder,
+.brief-field textarea::placeholder {
+  color: #7b8872;
+  opacity: 1;
+}
+.brief-field select {
+  min-height: 43px;
+  padding-right: 28px;
+  cursor: pointer;
+}
+.brief-field textarea,
+.brief-preview textarea {
+  resize: vertical;
+  min-height: 105px;
+}
+.brief-field input:focus,
+.brief-field select:focus,
+.brief-field textarea:focus,
+.brief-preview textarea:focus {
+  outline: 2px solid #6c9060;
+  border-color: #76966b;
+}
+.brief-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 15px;
+}
+.brief-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 18px;
+  border: 1px dashed #cbd7bf;
+  border-radius: 8px;
+  background: #f7f9f2;
+}
+.brief-import-row strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.brief-import-row p {
+  font-size: 11px;
+  color: #66765b;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.brief-import-button,
+.brief-use-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 14px;
+  min-height: 40px;
+  border: 1px solid #cbd7bf;
+  border-radius: 6px;
+  background: #fff;
+  color: #405a34;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.brief-import-button:hover:not(:disabled) {
+  background: #eaf1e0;
+  border-color: #abc096;
+}
+.brief-use-button {
+  background: #315a46;
+  border-color: #315a46;
+  color: #fff;
+}
+.brief-use-button:hover:not(:disabled) {
+  background: #244934;
+}
+.brief-import-button:disabled,
+.brief-use-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.brief-privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #5b6b51;
+  margin-top: -8px;
+}
+.brief-privacy svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.brief-import-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  background: #edf3e6;
+  border-radius: 7px;
+}
+.brief-import-progress p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #4f6c41;
+}
+.brief-import-progress button,
+.brief-notes-label button {
+  font-size: 11px;
+  color: #4d693d;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 5px;
+  cursor: pointer;
+}
+.brief-error,
+.brief-notice {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+.brief-error {
+  background: #fff4ef;
+  border: 1px solid #efd8c9;
+  border-radius: 7px;
+  padding: 12px;
+  color: #94462e;
+}
+.brief-notice {
+  color: #46663b;
+}
+.brief-preview {
+  border: 1px solid #cbdabb;
+  background: #f5f8f0;
+  padding: 17px;
+  border-radius: 9px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.brief-preview-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.brief-preview-heading > div {
+  min-width: 0;
+}
+.brief-preview-heading span {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  font-weight: 600;
+  color: #6a7e57;
+}
+.brief-preview-heading h3 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+.brief-icon-button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  color: #647759;
+  cursor: pointer;
+}
+.brief-icon-button:hover {
+  background: #e5eddb;
+}
+.brief-preview-description {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #5a6d4e;
+}
+.brief-import-warnings {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+  color: #765f32;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.brief-preview textarea {
+  min-height: 165px;
+  background: #fff;
+  font-size: 12px;
+}
+.brief-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brief-preview-actions > span {
+  font-size: 11px;
+  color: #69795c;
+}
+.brief-notes-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.brief-notes > p {
+  font-size: 11px;
+  color: #6a7a5f;
+  line-height: 1.6;
+  margin-top: -3px;
+}
+.brief-notes-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 10px;
+  color: #5b6b51;
+  line-height: 1.5;
+}
+.brief-notes-meta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.brief-notes-meta > span:last-child {
+  flex-shrink: 0;
+}
+.brief-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+@media (max-width: 1050px) {
+  .brief-summary-copy > span {
+    max-width: 380px;
+  }
+  .brief-summary-meta {
+    font-size: 10px;
+    gap: 6px;
+  }
+  .brief-options {
+    grid-template-columns: 1fr 1fr;
+  }
+  .brief-options > .brief-field:last-child {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 640px) {
+  .session-brief {
+    margin-bottom: 18px;
+  }
+  .brief-summary {
+    padding: 15px;
+    gap: 10px;
+  }
+  .brief-summary-meta {
+    display: none;
+  }
+  .brief-summary-copy {
+    flex: 1;
+  }
+  .brief-summary-copy > span {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+  }
+  .brief-fields {
+    padding: 17px;
+    gap: 17px;
+  }
+  .brief-options {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .brief-options > .brief-field:last-child {
+    grid-column: auto;
+  }
+  .brief-import-row {
+    padding: 14px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .brief-import-button {
+    width: 100%;
+  }
+  .brief-field input,
+  .brief-field select,
+  .brief-field textarea,
+  .brief-preview textarea {
+    font-size: 16px;
+  }
+  .brief-preview {
+    padding: 14px;
+  }
+  .brief-preview-actions {
+    flex-wrap: wrap;
+  }
+  .brief-preview-actions .brief-use-button {
+    margin-left: auto;
+  }
+  .brief-notes-meta {
+    font-size: 10px;
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brief-chevron {
+    transition: none;
+  }
+}

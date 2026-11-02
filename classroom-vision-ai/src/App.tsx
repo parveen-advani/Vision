@@ -1,14 +1,33 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Header } from "./components/Header";
-import { ProjectionStage } from "./components/ProjectionStage";
-import { VoicePanel } from "./components/VoicePanel";
 import { GestureCamera } from "./components/GestureCamera";
 import { ControlPanel } from "./components/ControlPanel";
 import { LibraryPanel } from "./components/LibraryPanel";
-import { AIStatusCard, CommandHistory } from "./components/CommandHistory";
+import { CommandHistory } from "./components/CommandHistory";
 import { TeacherAssistant } from "./components/TeacherAssistant";
 import { ShortcutDialog } from "./components/ShortcutDialog";
 import { Icon } from "./components/Icon";
+import { SessionBrief } from "./presentation/SessionBrief";
+import { CopilotPanel } from "./presentation/CopilotPanel";
+import { ConceptBoard, WelcomeBoard } from "./presentation/ConceptBoard";
+import {
+  ExternalModels,
+  ModelViewer,
+  featuredEngine,
+} from "./presentation/ExternalModels";
+import type { ExternalModel } from "./presentation/types";
+import {
+  usePresentation,
+  downloadSession,
+} from "./presentation/usePresentation";
 import { categoryLabels } from "./components/LibraryPanel";
 import {
   getNextVisual,
@@ -26,6 +45,12 @@ import type {
   ModelTransform,
   VisualId,
 } from "./types";
+
+const ProjectionStage = lazy(() =>
+  import("./components/ProjectionStage").then((module) => ({
+    default: module.ProjectionStage,
+  })),
+);
 
 const defaultTransform: ModelTransform = {
   rotationX: 0,
@@ -57,6 +82,13 @@ function formatTime() {
 }
 
 export default function App() {
+  const session = usePresentation();
+  const [boardMode, setBoardMode] = useState<
+    "welcome" | "model" | "concept" | "external"
+  >("welcome");
+  const [externalModel, setExternalModel] = useState<ExternalModel | null>(
+    null,
+  );
   const [activeVisualId, setActiveVisualId] = useState<VisualId>("heart");
   const [transform, setTransform] = useState<ModelTransform>(() => ({
     ...defaultTransform,
@@ -76,21 +108,55 @@ export default function App() {
     () => getVisualById(activeVisualId),
     [activeVisualId],
   );
-  const displayedIntent = useMemo<IntentResult | null>(() => {
-    if (!processing) return lastIntent;
-    return {
-      action: lastIntent?.action ?? "none",
-      confidence: lastIntent?.confidence ?? 0.5,
-      transcript: lastIntent?.transcript ?? "Listening...",
-      response: "Processing teacher command...",
-      keywords: lastIntent?.keywords ?? [],
-      source: lastIntent?.source ?? "local",
-      visualId: lastIntent?.visualId,
-    };
-  }, [lastIntent, processing]);
-
-  const speech = useSpeechRecognition();
+  const speech = useSpeechRecognition(
+    session.context.language === "hi" ? "hi-IN" : "en-IN",
+  );
   const hand = useHandTracking();
+  const nativeBoard =
+    boardMode === "model" ||
+    (boardMode === "concept" && session.activeCard?.plan.kind === "model");
+  useEffect(() => {
+    if (!session.activeCard) return;
+    setBoardMode("concept");
+    if (session.activeCard.plan.modelId)
+      setActiveVisualId(session.activeCard.plan.modelId);
+  }, [session.activeCard]);
+  useEffect(() => {
+    if (boardMode === "model")
+      session.setBoardContext({
+        title: activeVisual.shortTitle,
+        takeaway: activeVisual.explanation.slice(0, 600),
+        kind: "model",
+      });
+    else if (boardMode === "external" && externalModel)
+      session.setBoardContext({
+        title: externalModel.title,
+        takeaway: "A detailed 3D model by " + externalModel.author,
+        kind: "model",
+      });
+    else if (boardMode === "concept" && session.activeCard)
+      session.setBoardContext({
+        title: session.activeCard.plan.title,
+        takeaway: session.activeCard.plan.takeaway,
+        kind: session.activeCard.plan.kind,
+      });
+    else session.setBoardContext(null);
+  }, [
+    boardMode,
+    activeVisual,
+    externalModel,
+    session.activeCard,
+    session.setBoardContext,
+  ]);
+  const showExternal = (model: ExternalModel) => {
+    setExternalModel(model);
+    setBoardMode("external");
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+  const stopListening = () => {
+    speech.stop();
+    session.stopPendingSpeech();
+  };
 
   const addHistory = useCallback(
     (
@@ -213,6 +279,7 @@ export default function App() {
     (visualId: VisualId) => {
       const visual = getVisualById(visualId);
       setActiveVisualId(visualId);
+      setBoardMode("model");
       setLibraryOpen(false);
       setLastIntent({
         visualId,
@@ -232,11 +299,21 @@ export default function App() {
     if (!speech.lastFinal || speech.lastFinal.id === lastSpeechIdRef.current)
       return;
     lastSpeechIdRef.current = speech.lastFinal.id;
-    void handleTeacherCommand(speech.lastFinal.transcript);
-  }, [handleTeacherCommand, speech.lastFinal]);
+    const text = speech.lastFinal.transcript.trim();
+    const command =
+      /^(?:vision[, :]*)?(?:rotate (?:left|right|up|down)|zoom (?:in|out)|next model|previous model|reset (?:view|model)|pause (?:motion|rotation)|resume (?:motion|rotation)|projector mode)[.!?]?$/i.test(
+        text,
+      );
+    if (command && nativeBoard) void handleTeacherCommand(text);
+    else session.hear(text);
+  }, [handleTeacherCommand, speech.lastFinal, session.hear, nativeBoard]);
 
   useEffect(() => {
-    if (!hand.lastEvent || hand.lastEvent.id === lastGestureIdRef.current)
+    if (
+      !nativeBoard ||
+      !hand.lastEvent ||
+      hand.lastEvent.id === lastGestureIdRef.current
+    )
       return;
     lastGestureIdRef.current = hand.lastEvent.id;
     if (hand.lastEvent.name === "swipe-right") {
@@ -248,7 +325,7 @@ export default function App() {
     if (hand.lastEvent.name === "fist") {
       applyAction("reset", undefined, "Gesture: fist reset", 0.9);
     }
-  }, [applyAction, hand.lastEvent]);
+  }, [applyAction, hand.lastEvent, nativeBoard]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -270,6 +347,7 @@ export default function App() {
         setHelpOpen(true);
         return;
       }
+      if (!nativeBoard) return;
       const map: Record<string, CommandAction> = {
         ArrowLeft: "rotate-left",
         ArrowRight: "rotate-right",
@@ -293,7 +371,7 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [applyAction, transform.paused, helpOpen]);
+  }, [applyAction, transform.paused, helpOpen, nativeBoard]);
 
   const handleRotate = useCallback((deltaYaw: number, deltaPitch: number) => {
     setTransform((current) => ({
@@ -310,12 +388,17 @@ export default function App() {
   return (
     <div className={projectorMode ? "app-shell projector-mode" : "app-shell"}>
       <a className="skip-link" href="#main-workspace">
-        Skip to teaching workspace
+        Skip to presentation workspace
       </a>
       <LibraryPanel
-        activeId={activeVisualId}
+        activeId={nativeBoard ? activeVisualId : null}
         onSelect={handleSelectVisual}
         onOpenHelp={() => setHelpOpen(true)}
+        onHome={() => {
+          setBoardMode("welcome");
+          setLibraryOpen(false);
+        }}
+        isCanvas={boardMode !== "model"}
         isOpen={libraryOpen}
         onClose={() => setLibraryOpen(false)}
       />
@@ -342,132 +425,250 @@ export default function App() {
           <div className="workspace-intro">
             <div>
               <div className="workspace-eyebrow">
-                <span />A SPACE FOR CURIOSITY
+                <span />
+                MADE FOR THE MOMENT
               </div>
-              <h1>Teaching studio</h1>
-              <p>Pick a model. Make it your lesson.</p>
+              <h1>Presentation studio</h1>
+              <p>Make the next idea click.</p>
             </div>
-            <div className="studio-signature">
-              <span className="signature-illustration" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-              <span>
-                Small discoveries.
-                <br />
-                <strong>Big understanding.</strong>
-              </span>
+            <div className="session-actions">
+              <button
+                type="button"
+                disabled={!session.cards.length && !session.transcript.length}
+                onClick={() => downloadSession(session)}
+              >
+                <Icon name="download" size={15} />
+                Export session
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  stopListening();
+                  session.reset();
+                  setBoardMode("welcome");
+                }}
+              >
+                New session
+                <Icon name="plus" size={15} />
+              </button>
             </div>
           </div>
+          <SessionBrief
+            context={session.context}
+            onChange={session.setContext}
+            disabled={session.processing}
+          />
 
           <div className="studio-grid">
-            <div className="stage-column">
-              <ProjectionStage
-                visual={activeVisual}
-                transform={transform}
-                gesture={hand.gesture}
-                projectorMode={projectorMode}
-                onRotate={handleRotate}
-              >
-                <ControlPanel
-                  transform={transform}
-                  onAction={handleDirectAction}
+            <div className="stage-column" id="presentation-board">
+              {boardMode === "welcome" && (
+                <WelcomeBoard
+                  processing={session.processing}
+                  onExample={(message) =>
+                    void session.ask(message, "ask", "presenter", true)
+                  }
                 />
-              </ProjectionStage>
-              <div className="stage-footnote">
-                <span>
-                  <Icon name="info" size={14} />
-                  Concept model · simplified for learning
-                </span>
-                <button type="button" onClick={() => setHelpOpen(true)}>
-                  <Icon name="keyboard" size={15} />
-                  View shortcuts
-                </button>
-              </div>
-              <div className="lesson-section">
-                <section
-                  className="lesson-notes"
-                  aria-labelledby="lesson-notes-title"
-                >
-                  <div className="lesson-note-icon">
-                    <Icon name="book" size={21} />
+              )}
+              {boardMode === "external" && externalModel && (
+                <ModelViewer
+                  model={externalModel}
+                  onClose={() =>
+                    setBoardMode(session.activeCard ? "concept" : "welcome")
+                  }
+                />
+              )}
+              {boardMode === "concept" && session.activeCard && (
+                <ConceptBoard
+                  card={session.activeCard}
+                  onDetailedModel={() => showExternal(featuredEngine)}
+                  model={
+                    <Suspense
+                      fallback={
+                        <div className="model-loading" role="status">
+                          Opening the interactive model?
+                        </div>
+                      }
+                    >
+                      <ProjectionStage
+                        visual={activeVisual}
+                        transform={transform}
+                        gesture={hand.gesture}
+                        projectorMode={projectorMode}
+                        onRotate={handleRotate}
+                      >
+                        <ControlPanel
+                          transform={transform}
+                          onAction={handleDirectAction}
+                        />
+                      </ProjectionStage>
+                    </Suspense>
+                  }
+                  onAsk={(message, trigger) =>
+                    void session.ask(message, trigger || "ask")
+                  }
+                />
+              )}
+              {boardMode === "model" && (
+                <>
+                  <Suspense
+                    fallback={
+                      <div className="model-loading" role="status">
+                        Opening the interactive model?
+                      </div>
+                    }
+                  >
+                    <ProjectionStage
+                      visual={activeVisual}
+                      transform={transform}
+                      gesture={hand.gesture}
+                      projectorMode={projectorMode}
+                      onRotate={handleRotate}
+                    >
+                      <ControlPanel
+                        transform={transform}
+                        onAction={handleDirectAction}
+                      />
+                    </ProjectionStage>
+                  </Suspense>
+                  <div className="stage-footnote">
+                    <span>
+                      <Icon name="info" size={14} />
+                      Concept model · simplified for learning
+                    </span>
+                    <button type="button" onClick={() => setHelpOpen(true)}>
+                      <Icon name="keyboard" size={15} />
+                      View shortcuts
+                    </button>
                   </div>
+                  <div className="lesson-section">
+                    <section
+                      className="lesson-notes"
+                      aria-labelledby="lesson-notes-title"
+                    >
+                      <div className="lesson-note-icon">
+                        <Icon name="book" size={21} />
+                      </div>
+                      <div>
+                        <div className="lesson-kicker">
+                          THE LESSON, AT A GLANCE{" "}
+                          <span>{categoryLabels[activeVisual.category]}</span>
+                        </div>
+                        <h2 id="lesson-notes-title">
+                          {lessonTitles[activeVisual.id]}
+                        </h2>
+                        <p>{lessonDescriptions[activeVisual.id]}</p>
+                        <div className="lesson-topics">
+                          {lessonTopics[activeVisual.id].map((topic) => (
+                            <span key={topic}>{topic}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                    <TeacherAssistant
+                      visual={activeVisual}
+                      gesture={hand.gesture}
+                      lastIntent={lastIntent}
+                      onSubmitCommand={handleTeacherCommand}
+                      processing={processing}
+                    />
+                    <CommandHistory history={history} />
+                  </div>
+                </>
+              )}
+              {session.cards.length > 0 && (
+                <nav className="session-timeline" aria-label="Session visuals">
                   <div>
-                    <div className="lesson-kicker">
-                      THE LESSON, AT A GLANCE{" "}
-                      <span>{categoryLabels[activeVisual.category]}</span>
-                    </div>
-                    <h2 id="lesson-notes-title">
-                      {lessonTitles[activeVisual.id]}
-                    </h2>
-                    <p>{lessonDescriptions[activeVisual.id]}</p>
-                    <div className="lesson-topics">
-                      {lessonTopics[activeVisual.id].map((topic) => (
-                        <span key={topic}>{topic}</span>
-                      ))}
-                    </div>
+                    <span>YOUR SESSION</span>
+                    <small>
+                      {session.cards.length} visual
+                      {session.cards.length === 1 ? "" : "s"}
+                    </small>
                   </div>
-                </section>
-                <TeacherAssistant
-                  visual={activeVisual}
-                  gesture={hand.gesture}
-                  lastIntent={lastIntent}
-                  onSubmitCommand={handleTeacherCommand}
-                  processing={processing}
+                  <ol>
+                    {session.cards.map((card, index) => (
+                      <li key={card.id}>
+                        <button
+                          type="button"
+                          aria-current={
+                            boardMode === "concept" &&
+                            session.activeCard?.id === card.id
+                              ? "step"
+                              : undefined
+                          }
+                          onClick={() => {
+                            session.showCard(card);
+                            setBoardMode("concept");
+                          }}
+                        >
+                          <span>{String(index + 1).padStart(2, "0")}</span>
+                          <strong>{card.plan.title}</strong>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+              <div className="external-library">
+                <ExternalModels
+                  selectedModelId={
+                    boardMode === "external" ? externalModel?.uid : null
+                  }
+                  onModelSelect={showExternal}
+                  initialQuery={
+                    session.activeCard?.plan.externalQuery || "car engine"
+                  }
                 />
-                <CommandHistory history={history} />
               </div>
             </div>
             <aside
               className="side-stack"
-              aria-label="Teaching tools"
+              aria-label="Presentation tools"
               style={{ display: projectorMode ? "none" : undefined }}
             >
-              <div className="tools-heading">
-                <h2>Teaching tools</h2>
-                <span>HANDS-FREE, IF YOU LIKE</span>
-              </div>
-              <VoicePanel
-                supported={speech.supported}
-                listening={speech.listening}
-                interimTranscript={speech.interimTranscript}
-                speechError={speech.error}
-                processing={processing}
-                onStart={speech.start}
-                onStop={speech.stop}
-                onSubmitCommand={handleTeacherCommand}
+              <CopilotPanel
+                session={session}
+                speech={{ ...speech, stop: stopListening }}
+                onModelSelect={showExternal}
               />
-              <AIStatusCard
-                lastIntent={displayedIntent}
-                processing={processing}
-              />
-              <GestureCamera
-                videoRef={hand.videoRef}
-                canvasRef={hand.canvasRef}
-                enabled={hand.enabled}
-                loading={hand.loading}
-                error={hand.error}
-                gesture={hand.gesture}
-                onStart={hand.start}
-                onStop={hand.stop}
-              />
-              <div className="tools-privacy">
-                <Icon name="check" size={14} />
+              <details className="gesture-disclosure">
+                <summary>
+                  <Icon name="hand" size={16} />
+                  Hands-free model controls
+                  <Icon name="chevron-down" size={14} />
+                </summary>
                 <p>
-                  You're in control. Camera and microphone start only when you
-                  choose.
+                  Control built-in 3D models with hand gestures. External
+                  viewers have their own controls.
                 </p>
-              </div>
+                <GestureCamera
+                  videoRef={hand.videoRef}
+                  canvasRef={hand.canvasRef}
+                  enabled={hand.enabled}
+                  loading={hand.loading}
+                  error={hand.error}
+                  gesture={hand.gesture}
+                  onStart={hand.start}
+                  onStop={hand.stop}
+                />
+              </details>
             </aside>
           </div>
+          <button
+            className="mobile-copilot-link"
+            type="button"
+            onClick={() => document.getElementById("copilot-question")?.focus()}
+          >
+            <Icon name="mic" size={16} />
+            Ask or speak to Vision
+            <Icon name="arrow-right" size={15} />
+          </button>
           <footer className="workspace-footer">
             <span>
               Vision <span className="footer-dot">·</span> A little perspective
               goes a long way.
             </span>
             <span>
-              Made for curious classrooms
+              From classrooms to boardrooms
               <Icon name="leaf" size={13} />
             </span>
           </footer>

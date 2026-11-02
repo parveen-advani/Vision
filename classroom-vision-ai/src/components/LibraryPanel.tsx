@@ -15,12 +15,16 @@ export function LibraryPanel({
   activeId,
   onSelect,
   onOpenHelp,
+  onHome,
+  isCanvas,
   isOpen,
   onClose,
 }: {
-  activeId: VisualId;
+  activeId: VisualId | null;
   onSelect: (id: VisualId) => void;
   onOpenHelp: () => void;
+  onHome: () => void;
+  isCanvas: boolean;
   isOpen: boolean;
   onClose: () => void;
 }) {
@@ -89,7 +93,7 @@ export function LibraryPanel({
       <a
         href="#main-workspace"
         className="brand"
-        aria-label="Vision classroom studio"
+        aria-label="Vision presentation studio"
       >
         <span className="brand-symbol" aria-hidden="true">
           <span />
@@ -100,7 +104,7 @@ export function LibraryPanel({
         <span className="brand-wordmark">
           vision<span className="brand-period">.</span>
         </span>
-        <span className="brand-edition">CLASSROOM</span>
+        <span className="brand-edition">STUDIO</span>
       </a>
       <button
         className="icon-button sidebar-close"
@@ -112,11 +116,16 @@ export function LibraryPanel({
       </button>
       <div className="sidebar-workspace">
         <span className="small-label">YOUR WORKSPACE</span>
-        <div className="studio-nav">
+        <button
+          type="button"
+          className="studio-nav"
+          onClick={onHome}
+          aria-current={isCanvas ? "page" : undefined}
+        >
           <Icon name="grid" size={18} />
-          <span>Teaching studio</span>
+          <span>Live canvas</span>
           <span className="nav-current-dot" />
-        </div>
+        </button>
       </div>
       <section className="sidebar-library">
         <div className="library-heading">

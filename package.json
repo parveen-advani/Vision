@@ -6,6 +6,7 @@
   "scripts": {
     "build": "npm --prefix classroom-vision-ai run build",
     "dev": "npm --prefix classroom-vision-ai run dev",
-    "preview": "npm --prefix classroom-vision-ai run preview"
+    "preview": "npm --prefix classroom-vision-ai run preview",
+    "test": "npm --prefix classroom-vision-ai run test:assistant"
   }
 }

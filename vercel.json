@@ -7,6 +7,12 @@
   "functions": {
     "api/interpret.ts": {
       "maxDuration": 10
+    },
+    "api/assistant.ts": {
+      "maxDuration": 60
+    },
+    "api/models.ts": {
+      "maxDuration": 15
     }
   },
   "headers": [

@@ -31,12 +31,12 @@ export function Header({
         </button>
         <span className="header-home">Workspace</span>
         <Icon name="chevron-right" size={13} />
-        <span className="header-current">Teaching studio</span>
+        <span className="header-current">Presentation studio</span>
       </div>
       <div className="header-actions">
         <span className="session-indicator">
           <span className={"online-dot " + (sessionActive ? "is-live" : "")} />
-          {sessionActive ? "Session active" : "Ready to teach"}
+          {sessionActive ? "Session active" : "Ready to present"}
         </span>
         <span className="header-divider" />
         <button
@@ -55,7 +55,7 @@ export function Header({
           aria-label={projectorMode ? "Exit Projector" : "Projector Mode"}
         >
           <Icon name={projectorMode ? "close" : "projector"} size={17} />
-          <span>{projectorMode ? "Exit presentation" : "Present lesson"}</span>
+          <span>{projectorMode ? "Exit presentation" : "Present"}</span>
         </button>
       </div>
     </header>
