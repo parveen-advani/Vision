@@ -24,6 +24,7 @@ import {
   featuredEngine,
 } from "./presentation/ExternalModels";
 import type { ExternalModel } from "./presentation/types";
+import type { NativeCatalogEntry } from "./presentation/nativeCatalog";
 import {
   usePresentation,
   downloadSession,
@@ -51,6 +52,11 @@ import type {
 const ProjectionStage = lazy(() =>
   import("./components/ProjectionStage").then((module) => ({
     default: module.ProjectionStage,
+  })),
+);
+const NativeModelViewer = lazy(() =>
+  import("./presentation/NativeModelViewer").then((module) => ({
+    default: module.NativeModelViewer,
   })),
 );
 
@@ -86,11 +92,18 @@ function formatTime() {
 export default function App() {
   const session = usePresentation();
   const [boardMode, setBoardMode] = useState<
-    "welcome" | "model" | "concept" | "external"
+    "welcome" | "model" | "concept" | "external" | "local"
   >("welcome");
   const [externalModel, setExternalModel] = useState<ExternalModel | null>(
     null,
   );
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [modelSource, setModelSource] = useState<NativeCatalogEntry | null>(
+    null,
+  );
+  const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
+  const [modelLoadError, setModelLoadError] = useState("");
+  const modelRequest = useRef<AbortController | null>(null);
   const [activeVisualId, setActiveVisualId] = useState<VisualId>("heart");
   const [transform, setTransform] = useState<ModelTransform>(() => ({
     ...defaultTransform,
@@ -106,6 +119,9 @@ export default function App() {
   const [gestureArmed, setGestureArmed] = useState(true);
   const [handFeedback, setHandFeedback] = useState("");
   const [externalResetToken, setExternalResetToken] = useState(0);
+  useEffect(() => {
+    if (projectorMode) setHandPanelOpen(false);
+  }, [projectorMode]);
   const [engineNavigation, setEngineNavigation] = useState<{
     id: number;
     action: "next" | "previous" | "reset";
@@ -145,6 +161,19 @@ export default function App() {
     boardMode === "model" ||
     (boardMode === "concept" && session.activeCard?.plan.kind === "model");
   useEffect(() => {
+    modelRequest.current?.abort();
+    modelRequest.current = null;
+    setLoadingModelId(null);
+  }, [boardMode, activeVisualId, session.activeCard?.id]);
+  useEffect(
+    () => () => {
+      const pending = modelRequest.current;
+      modelRequest.current = null;
+      pending?.abort();
+    },
+    [],
+  );
+  useEffect(() => {
     if (!session.activeCard) return;
     setBoardMode("concept");
     if (session.activeCard.plan.modelId)
@@ -163,6 +192,13 @@ export default function App() {
         takeaway: "A detailed 3D model by " + externalModel.author,
         kind: "model",
       });
+    else if (boardMode === "local" && modelFile)
+      session.setBoardContext({
+        title: modelSource?.title || modelFile.name.replace(/\.glb$/i, ""),
+        takeaway:
+          "A model file opened by the presenter. Its geometry has not been analyzed.",
+        kind: "model",
+      });
     else if (boardMode === "concept" && session.activeCard)
       session.setBoardContext({
         title: session.activeCard.plan.title,
@@ -174,13 +210,62 @@ export default function App() {
     boardMode,
     activeVisual,
     externalModel,
+    modelFile,
+    modelSource,
     session.activeCard,
     session.setBoardContext,
   ]);
   const showExternal = (model: ExternalModel) => {
+    modelRequest.current?.abort();
+    modelRequest.current = null;
+    setLoadingModelId(null);
+    setModelFile(null);
+    setModelSource(null);
     setExternalModel(model);
     setBoardMode("external");
     window.scrollTo({ top: 0, behavior: "instant" });
+  };
+  const showModelFile = (file: File, source?: NativeCatalogEntry) => {
+    modelRequest.current?.abort();
+    modelRequest.current = null;
+    setLoadingModelId(null);
+    setModelLoadError("");
+    setModelFile(file);
+    setModelSource(source ?? null);
+    setBoardMode("local");
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+  const showCatalogModel = async (source: NativeCatalogEntry) => {
+    modelRequest.current?.abort();
+    const request = new AbortController();
+    modelRequest.current = request;
+    setLoadingModelId(source.id);
+    setModelLoadError("");
+    const timeout = window.setTimeout(() => request.abort(), 20000);
+    try {
+      const response = await fetch(source.file, { signal: request.signal });
+      if (!response.ok) throw new Error("Model unavailable");
+      const data = await response.blob();
+      if (modelRequest.current !== request) return;
+      if (!data.size || data.size > 50 * 1024 * 1024)
+        throw new Error("Invalid model file");
+      modelRequest.current = null;
+      showModelFile(
+        new File([data], `${source.id}.glb`, { type: "model/gltf-binary" }),
+        source,
+      );
+    } catch {
+      if (modelRequest.current === request)
+        setModelLoadError(
+          "This model couldn’t be opened. Check your connection and try again.",
+        );
+    } finally {
+      clearTimeout(timeout);
+      if (modelRequest.current === request) {
+        modelRequest.current = null;
+        setLoadingModelId(null);
+      }
+    }
   };
   const stopListening = () => {
     speech.stop();
@@ -218,6 +303,11 @@ export default function App() {
       transcript = "Manual control",
       confidence = 0.9,
     ) => {
+      if (action === "show" || action === "next" || action === "previous") {
+        modelRequest.current?.abort();
+        modelRequest.current = null;
+        setLoadingModelId(null);
+      }
       let nextVisualId = visualId ?? activeVisualId;
 
       if (action === "next") {
@@ -306,6 +396,9 @@ export default function App() {
 
   const handleSelectVisual = useCallback(
     (visualId: VisualId) => {
+      modelRequest.current?.abort();
+      modelRequest.current = null;
+      setLoadingModelId(null);
       const visual = getVisualById(visualId);
       setActiveVisualId(visualId);
       setBoardMode("model");
@@ -382,7 +475,7 @@ export default function App() {
     if (event.name === "fist") {
       if (nativeBoard)
         applyAction("reset", undefined, "Gesture: fist reset", 1);
-      else if (boardMode === "external")
+      else if (boardMode === "external" || boardMode === "local")
         setExternalResetToken((value) => value + 1);
       else if (engineBoard)
         setEngineNavigation({ id: event.id, action: "reset" });
@@ -504,6 +597,9 @@ export default function App() {
         onSelect={handleSelectVisual}
         onOpenHelp={() => setHelpOpen(true)}
         onHome={() => {
+          modelRequest.current?.abort();
+          modelRequest.current = null;
+          setLoadingModelId(null);
           setBoardMode("welcome");
           setLibraryOpen(false);
         }}
@@ -564,6 +660,13 @@ export default function App() {
                   stopHandControl();
                   setHandPanelOpen(false);
                   session.reset();
+                  modelRequest.current?.abort();
+                  modelRequest.current = null;
+                  setLoadingModelId(null);
+                  setModelLoadError("");
+                  setModelFile(null);
+                  setModelSource(null);
+                  setExternalModel(null);
                   setBoardMode("welcome");
                 }}
               >
@@ -598,6 +701,28 @@ export default function App() {
                     setBoardMode(session.activeCard ? "concept" : "welcome")
                   }
                 />
+              )}
+              {boardMode === "local" && modelFile && (
+                <Suspense
+                  fallback={
+                    <div className="model-loading" role="status">
+                      Opening your model…
+                    </div>
+                  }
+                >
+                  <NativeModelViewer
+                    file={modelFile}
+                    source={modelSource ?? undefined}
+                    gesture={activeGesture}
+                    gestureEnabled={controlsActive}
+                    resetToken={externalResetToken}
+                    onClose={() => {
+                      setModelFile(null);
+                      setModelSource(null);
+                      setBoardMode(session.activeCard ? "concept" : "welcome");
+                    }}
+                  />
+                </Suspense>
               )}
               {boardMode === "concept" && session.activeCard && (
                 <ConceptBoard
@@ -719,6 +844,9 @@ export default function App() {
                               : undefined
                           }
                           onClick={() => {
+                            modelRequest.current?.abort();
+                            modelRequest.current = null;
+                            setLoadingModelId(null);
                             session.showCard(card);
                             setBoardMode("concept");
                           }}
@@ -737,6 +865,13 @@ export default function App() {
                     boardMode === "external" ? externalModel?.uid : null
                   }
                   onModelSelect={showExternal}
+                  onFileSelect={showModelFile}
+                  onCatalogSelect={(source) => void showCatalogModel(source)}
+                  loadingModelId={loadingModelId}
+                  modelLoadError={modelLoadError}
+                  selectedCatalogId={
+                    boardMode === "local" ? modelSource?.id : null
+                  }
                   initialQuery={
                     session.activeCard?.plan.externalQuery || "car engine"
                   }
@@ -777,15 +912,19 @@ export default function App() {
               </section>
             </aside>
           </div>
-          <button
-            className="mobile-copilot-link"
-            type="button"
-            onClick={() => document.getElementById("copilot-question")?.focus()}
-          >
-            <Icon name="mic" size={16} />
-            Ask or speak to Vision
-            <Icon name="arrow-right" size={15} />
-          </button>
+          {!hand.enabled && !hand.loading && (
+            <button
+              className="mobile-copilot-link"
+              type="button"
+              onClick={() =>
+                document.getElementById("copilot-question")?.focus()
+              }
+            >
+              <Icon name="mic" size={16} />
+              Ask or speak to Vision
+              <Icon name="arrow-right" size={15} />
+            </button>
+          )}
           <footer className="workspace-footer">
             <span>
               Vision <span className="footer-dot">·</span> A little perspective
@@ -804,7 +943,7 @@ export default function App() {
         armed={gestureArmed}
         onToggleArmed={() => setGestureArmed((value) => !value)}
         target={
-          nativeBoard || boardMode === "external"
+          nativeBoard || boardMode === "external" || boardMode === "local"
             ? "model"
             : engineBoard
               ? "engine"

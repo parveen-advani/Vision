@@ -1,4 +1,4 @@
-# Vision ? Presentation Studio
+# Vision — Presentation Studio
 
 A live presentation workspace that turns a question or a spoken concept into an
 explanation, diagram, comparison, chart, or interactive model. Built for a
@@ -11,12 +11,15 @@ professor explaining an engine and a presenter explaining business ideas.
    text before choosing **Use notes**.
 2. Type an **Audience question** or **Presenter prompt**, or choose **Listen to
    the presentation**. Ordinary narration is retained as context; exact model
-   commands such as ?rotate left? still work on the built-in model board.
+   commands such as “rotate left” still work on the built-in model board.
 3. Review the proposed explanation, then choose **Show on board**. Suggestion
    mode is the default. **Show visuals automatically** is an explicit opt-in.
 4. Explore the engine's selectable parts and four strokes, or open its detailed
    animated Sketchfab assembly. Related models are suggested for physical topics;
    the searchable external library opens selected models on the main board.
+   **Ready in Vision** includes an expressive robot and a detailed toy-car
+   materials study, both running in the native viewer without an external
+   provider interface or account. **Open model file** also accepts your own GLB.
 5. Use **Make it simpler**, **Go deeper**, or a follow-up question. Session visuals
    let you return to previous explanations. **Present** hides presenter tools;
    Escape returns to the studio. External viewers retain their state.
@@ -47,13 +50,31 @@ from audience faces; the presenter or audience supplies a question.
   as rolling context; use session notes to retain important earlier facts.
 - Eight built-in Three.js concept models retain pointer, toolbar, keyboard and
   MediaPipe hand controls. Heavy 3D and document parsers load when needed.
-- Sketchfab uses the official hosted viewer with visible creator/license credit.
-  Native viewer controls and animations depend on the creator's model; universal part
-  separation or semantic control of arbitrary models is not claimed.
+- Sketchfab uses its official hosted viewer. Vision provides compact camera and
+  animation controls, with linked creator/license information in
+  **Model details**. Animations start paused and annotation markers start hidden.
+  Available controls depend on the model. Universal part separation or semantic
+  control of arbitrary models is not claimed.
+- The provider may retain its own title, logo and toolbar. Documented
+  `ui_infos`, `ui_controls` and `ui_hint` options depend on model/account
+  eligibility; the app does not crop or mask required branding. See the
+  [official initialization options](https://sketchfab.com/developers/viewer/initialization).
+- **Open model file** opens a self-contained `.glb` directly in Vision's native
+  canvas, without a provider iframe. Files stay in browser memory and are not
+  uploaded or retained after the tab closes. Use a model you have permission to
+  present; creator/source rights remain with the asset. This does not download
+  Sketchfab assets or grant redistribution rights.
+  The current limit is 50 MB with embedded geometry and textures. External file
+  references are rejected. Draco meshes and KTX2 textures need to be exported
+  without those compression formats. Animation clips can be played or paused;
+  mouse, touch and camera hand gestures share the same native view.
+- The two bundled native models are CC0 assets, served by Vision on demand.
+  Credits remain accessible in **Model details**. Original source references,
+  license documents and file hashes are in `public/models/CREDITS.md`.
 - Featured assembly: [Rigged 4-Cylinder Engine by david.gnzlv](https://sketchfab.com/3d-models/rigged-4-cylinder-engine-free-e14ebe68273d49a3becda6802270b4b0),
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It shows pistons,
-  connecting rods and a crankshaft, not the entire engine. Assets are embedded,
-  not downloaded or redistributed.
+  connecting rods and a crankshaft, not the entire engine. This Sketchfab asset
+  is embedded, not downloaded or redistributed.
 
 The interface has a responsive model drawer, keyboard focus management,
 reduced-motion support and locally served DM Sans fonts. Font licensing is in
@@ -92,7 +113,7 @@ Camera processing is local; hand control does not require an AI key.
 
 | Gesture | Action |
 | --- | --- |
-| Open palm, move slowly | Rotate a built-in or detailed Sketchfab 3D model |
+| Open palm, move slowly | Rotate a built-in, Sketchfab or local GLB model |
 | Hold a pinch, move up / down | Zoom in / out; release keeps the chosen view |
 | Point | Move a spotlight across the presentation without rotating the model |
 | Hold a fist briefly | Reset the 3D view, or return the engine walkthrough to intake |

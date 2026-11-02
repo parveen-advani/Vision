@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { GestureState } from "../types";
 import type { ExternalModel } from "./types";
+import { nativeCatalog, type NativeCatalogEntry } from "./nativeCatalog";
+import { Icon } from "../components/Icon";
+import { useSketchfabHandControls } from "./useSketchfabHandControls";
 import {
-  useSketchfabHandControls,
-  type SketchfabCameraApi,
-} from "./useSketchfabHandControls";
+  useModelViewerControls,
+  type ModelViewerControlApi,
+} from "./useModelViewerControls";
 import "./external-models.css";
 
 export const featuredEngine: ExternalModel = {
@@ -19,7 +22,7 @@ export const featuredEngine: ExternalModel = {
   animated: true,
 };
 
-interface ViewerApi extends SketchfabCameraApi {
+interface ViewerApi extends ModelViewerControlApi {
   start: () => void;
   addEventListener: (event: string, callback: () => void) => void;
   removeEventListener?: (event: string, callback: () => void) => void;
@@ -31,6 +34,13 @@ interface ViewerClient {
       autostart: number;
       dnt: number;
       camera: number;
+      animation_autoplay: number;
+      annotations_visible: number;
+      annotation_tooltip_visible: number;
+      ui_stop: number;
+      ui_infos: number;
+      ui_controls: number;
+      ui_hint: number;
       success: (api: ViewerApi) => void;
       error: () => void;
     },
@@ -76,7 +86,13 @@ export function ModelViewer({
   const frame = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
-  const [cameraApi, setCameraApi] = useState<ViewerApi | null>(null);
+  const [viewer, setViewer] = useState<{
+    uid: string;
+    retry: number;
+    api: ViewerApi;
+  } | null>(null);
+  const cameraApi =
+    viewer?.uid === model.uid && viewer.retry === retry ? viewer.api : null;
   const handControls = useSketchfabHandControls(
     cameraApi,
     frame,
@@ -85,6 +101,12 @@ export function ModelViewer({
     resetToken,
   );
   const rebaseCamera = handControls.rebaseCamera;
+  const controls = useModelViewerControls(
+    cameraApi,
+    frame,
+    model.uid,
+    rebaseCamera,
+  );
   useEffect(() => {
     let active = true;
     let api: ViewerApi | undefined;
@@ -146,7 +168,7 @@ export function ModelViewer({
     });
     if (frame.current) observer.observe(frame.current);
     setState("loading");
-    setCameraApi(null);
+    setViewer(null);
     const timeout = window.setTimeout(() => {
       if (active) setState("error");
     }, 25000);
@@ -155,7 +177,7 @@ export function ModelViewer({
         ready = true;
         clearTimeout(timeout);
         setState("ready");
-        setCameraApi(api ?? null);
+        setViewer(api ? { uid: model.uid, retry, api } : null);
         refit();
       }
     };
@@ -167,6 +189,15 @@ export function ModelViewer({
           autostart: 1,
           dnt: 1,
           camera: 0,
+          animation_autoplay: 0,
+          annotations_visible: 0,
+          annotation_tooltip_visible: 0,
+          ui_stop: 0,
+          // These documented options are honored only for eligible models.
+          // Provider branding is retained; the iframe is never cropped or masked.
+          ui_infos: 0,
+          ui_controls: 0,
+          ui_hint: 0,
           success(viewer) {
             if (!active) return;
             api = viewer;
@@ -203,7 +234,7 @@ export function ModelViewer({
     >
       <div className="external-viewer-title">
         <div>
-          <span>DETAILED 3D VIEW</span>
+          <span>VISION / 3D STUDIO</span>
           <h4>{model.title}</h4>
         </div>
         <button
@@ -211,7 +242,7 @@ export function ModelViewer({
           onClick={onClose}
           aria-label="Close detailed model"
         >
-          ×
+          <Icon name="close" size={18} />
         </button>
       </div>
       <div className="external-frame-shell">
@@ -250,43 +281,117 @@ export function ModelViewer({
           </div>
         )}
       </div>
-      <div className="external-attribution">
-        <span>
-          <a href={model.url} target="_blank" rel="noreferrer">
-            {model.title}
-          </a>{" "}
-          by{" "}
-          <a href={model.authorUrl} target="_blank" rel="noreferrer">
-            {model.author}
-          </a>{" "}
-          ·{" "}
-          {model.uid === featuredEngine.uid ? (
-            <a
-              href="https://creativecommons.org/licenses/by/4.0/"
-              target="_blank"
-              rel="noreferrer"
+      <div className="model-toolbar" role="group" aria-label="Model controls">
+        <div
+          className="model-camera-actions"
+          role="group"
+          aria-label="Camera controls"
+        >
+          {(
+            [
+              ["rotate-left", "Rotate model left", controls.camera.rotateLeft],
+              [
+                "rotate-right",
+                "Rotate model right",
+                controls.camera.rotateRight,
+              ],
+              ["minus", "Zoom model out", controls.camera.zoomOut],
+              ["plus", "Zoom model in", controls.camera.zoomIn],
+              ["reset", "Reset model view", controls.camera.reset],
+            ] as const
+          ).map(([icon, label, action]) => (
+            <button
+              key={icon}
+              type="button"
+              aria-label={label}
+              title={label}
+              disabled={
+                !controls.camera.available ||
+                controls.camera.busy ||
+                state !== "ready"
+              }
+              onClick={action}
             >
-              {model.license}
-            </a>
-          ) : (
-            <span>{model.license}</span>
+              <Icon name={icon} size={17} />
+            </button>
+          ))}
+        </div>
+        <div className="model-display-actions">
+          {controls.animation.available && (
+            <button
+              type="button"
+              onClick={controls.animation.togglePlayback}
+              disabled={controls.animation.busy}
+              aria-pressed={controls.animation.playing}
+              aria-label={
+                controls.animation.playing
+                  ? "Pause model animation"
+                  : "Play model animation"
+              }
+            >
+              <Icon
+                name={controls.animation.playing ? "pause" : "play"}
+                size={15}
+              />
+              <span>{controls.animation.playing ? "Pause" : "Animate"}</span>
+            </button>
           )}
-        </span>
-        <a href="https://sketchfab.com" target="_blank" rel="noreferrer">
-          View provided by Sketchfab ↗
-        </a>
+        </div>
+        <details className="model-credits" key={model.uid}>
+          <summary>
+            <Icon name="info" size={15} />
+            <span>Model details</span>
+            <Icon name="chevron-down" size={13} />
+          </summary>
+          <div className="external-attribution">
+            <span className="model-credit-label">MODEL & CREATOR</span>
+            <span>
+              <a href={model.url} target="_blank" rel="noreferrer">
+                {model.title}
+              </a>{" "}
+              by{" "}
+              <a href={model.authorUrl} target="_blank" rel="noreferrer">
+                {model.author}
+              </a>{" "}
+              ·{" "}
+              {model.uid === featuredEngine.uid ? (
+                <a
+                  href="https://creativecommons.org/licenses/by/4.0/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {model.license}
+                </a>
+              ) : (
+                <span>{model.license}</span>
+              )}
+            </span>
+            <a href="https://sketchfab.com" target="_blank" rel="noreferrer">
+              Viewer provided by Sketchfab ↗
+            </a>
+            <p className="external-controls-note">
+              {gestureEnabled && handControls.status === "ready"
+                ? "Palm: rotate. Pinch + move up/down: zoom. Fist: reset. Drag and zoom also work. "
+                : gestureEnabled && handControls.status === "unavailable"
+                  ? "Hand controls are unavailable for this viewer. Drag and zoom inside the viewer. "
+                  : "Drag and zoom inside the viewer. "}
+              Animations are available when included in the model. Creator
+              annotations start hidden for a clear presentation.
+              {model.uid === featuredEngine.uid
+                ? " This assembly shows the pistons, connecting rods and crankshaft."
+                : ""}
+            </p>
+          </div>
+        </details>
       </div>
-      <p className="external-controls-note">
-        {gestureEnabled && handControls.status === "ready"
-          ? "Palm: rotate. Pinch + move up/down: zoom. Fist: reset. Drag and zoom also work. "
-          : gestureEnabled && handControls.status === "unavailable"
-            ? "Hand controls are unavailable for this viewer. Drag and zoom inside the viewer. "
-            : "Drag and zoom inside the viewer. "}
-        Available animations and annotations depend on the creator’s model.
-        {model.uid === featuredEngine.uid
-          ? " This assembly shows the pistons, connecting rods and crankshaft."
-          : ""}
-      </p>
+      {[controls.camera.error, controls.animation.error].filter(Boolean)
+        .length > 0 && (
+        <p className="model-control-error" role="status">
+          {[controls.camera.error, controls.animation.error]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+      )}
     </div>
   );
 }
@@ -295,10 +400,20 @@ export function ExternalModels({
   initialQuery = "",
   onModelSelect,
   selectedModelId,
+  onFileSelect,
+  onCatalogSelect,
+  loadingModelId,
+  selectedCatalogId,
+  modelLoadError,
 }: {
   initialQuery?: string;
   onModelSelect?: (model: ExternalModel) => void;
   selectedModelId?: string | null;
+  onFileSelect?: (file: File) => void;
+  onCatalogSelect?: (source: NativeCatalogEntry) => void;
+  loadingModelId?: string | null;
+  selectedCatalogId?: string | null;
+  modelLoadError?: string;
 }) {
   const [query, setQuery] = useState(initialQuery || "four cylinder engine");
   const [models, setModels] = useState<ExternalModel[]>([]);
@@ -306,6 +421,8 @@ export function ExternalModels({
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [searched, setSearched] = useState(false);
+  const [fileError, setFileError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     if (initialQuery) setQuery(initialQuery);
@@ -377,17 +494,105 @@ export function ExternalModels({
           <span>ANOTHER PERSPECTIVE</span>
           <h3>Explore a detailed 3D model</h3>
           <p>
-            Real assemblies and artist-made models, with the original creator’s
-            controls.
+            Explore assemblies, structures and objects in your presentation.
           </p>
         </div>
-        <a href="https://sketchfab.com" target="_blank" rel="noreferrer">
-          Sketchfab ↗
-        </a>
+        {onFileSelect && (
+          <button
+            className="model-file-button"
+            type="button"
+            onClick={() => fileInput.current?.click()}
+          >
+            <Icon name="plus" size={16} /> Open model file
+          </button>
+        )}
       </div>
+      {onFileSelect && (
+        <>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".glb"
+            className="model-file-input"
+            aria-label="Open GLB model file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              if (!/\.glb$/i.test(file.name)) {
+                setFileError("Choose a self-contained .glb model file.");
+                return;
+              }
+              if (file.size > 50 * 1024 * 1024) {
+                setFileError("Choose a GLB file smaller than 50 MB.");
+                return;
+              }
+              if (!file.size) {
+                setFileError("This file is empty. Choose another GLB model.");
+                return;
+              }
+              setFileError("");
+              onFileSelect(file);
+            }}
+          />
+          <p className="model-file-hint">
+            Have a GLB model? Open it directly in Vision. The file stays in your
+            browser.
+          </p>
+          {fileError && (
+            <p className="external-search-notice" role="alert">
+              {fileError}
+            </p>
+          )}
+        </>
+      )}
+      {onCatalogSelect && (
+        <div className="native-catalog" aria-label="Vision model library">
+          <p className="native-catalog-label">READY IN VISION</p>
+          <div className="native-catalog-grid">
+            {nativeCatalog.map((source) => (
+              <button
+                type="button"
+                className="native-catalog-card"
+                key={source.id}
+                onClick={() => onCatalogSelect(source)}
+                disabled={loadingModelId === source.id}
+                aria-pressed={selectedCatalogId === source.id}
+                aria-label={`Open ${source.title}`}
+              >
+                <div className="native-catalog-preview">
+                  <img src={source.preview} alt="" loading="lazy" />
+                  <span>
+                    <Icon name="arrow-up-right" size={16} />
+                  </span>
+                </div>
+                <strong>{source.title}</strong>
+                <span className="native-catalog-description">
+                  {source.description}
+                </span>
+                <span className="native-catalog-size">
+                  {loadingModelId === source.id
+                    ? "Opening model…"
+                    : source.size}
+                </span>
+              </button>
+            ))}
+          </div>
+          {loadingModelId && (
+            <p className="native-catalog-status" role="status">
+              Opening your model. Your current board stays in place.
+            </p>
+          )}
+          {modelLoadError && (
+            <p className="external-search-notice" role="alert">
+              {modelLoadError}
+            </p>
+          )}
+        </div>
+      )}
       <form className="external-model-search" onSubmit={search}>
         <label htmlFor="external-model-query">
-          Find a model for this topic
+          Search more models on Sketchfab
         </label>
         <div>
           <input

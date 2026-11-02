@@ -49,20 +49,45 @@ export function HandControlDock({
       aria-hidden={!visible}
     >
       <div className="hand-dock-top">
-        <span className={"hand-dock-icon" + (tracking ? " is-tracking" : "")}>
-          <Icon name="hand" size={18} />
-        </span>
-        <div>
-          <strong>
-            {loading
-              ? "Starting hand control"
+        <span
+          className={"hand-dock-icon" + (tracking ? " is-tracking" : "")}
+          role="img"
+          aria-label={
+            tracking
+              ? "Hand detected"
               : enabled
                 ? armed
-                  ? "Hand control is on"
+                  ? "Camera on, waiting for a hand"
+                  : "Gesture control paused"
+                : "Hand control"
+          }
+          title={
+            tracking
+              ? "Hand detected"
+              : enabled
+                ? armed
+                  ? "Camera on, waiting for a hand"
+                  : "Gesture control paused"
+                : "Hand control"
+          }
+        >
+          <Icon name="hand" size={18} />
+        </span>
+        <div className="hand-dock-status">
+          <strong>
+            {loading
+              ? open
+                ? "Starting hand control"
+                : "Starting camera"
+              : enabled
+                ? armed
+                  ? open
+                    ? "Hand control is on"
+                    : "Hand control"
                   : "Hand control paused"
                 : "Present with your hands"}
           </strong>
-          <span>
+          <span className="hand-dock-description">
             {loading
               ? "Waiting for camera and tracking"
               : enabled
@@ -74,12 +99,36 @@ export function HandControlDock({
                 : "Rotate, zoom and present from where you stand."}
           </span>
         </div>
+        {!open && (enabled || loading) && (
+          <div className="hand-dock-quick-actions">
+            {enabled && (
+              <button
+                type="button"
+                onClick={onToggleArmed}
+                aria-pressed={!armed}
+                aria-label={armed ? "Pause gestures" : "Resume gestures"}
+                title={armed ? "Pause gestures" : "Resume gestures"}
+              >
+                <Icon name={armed ? "pause" : "play"} size={15} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onStop}
+              aria-label={loading ? "Cancel camera startup" : "Stop camera"}
+              title={loading ? "Cancel camera startup" : "Stop camera"}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={open}
           aria-controls="hand-camera-details"
           aria-label={open ? "Minimize hand controls" : "Expand hand controls"}
+          title={open ? "Minimize hand controls" : "Expand hand controls"}
         >
           <Icon name={open ? "minus" : "chevron-down"} size={17} />
         </button>
@@ -109,34 +158,51 @@ export function HandControlDock({
       </div>
       {enabled && (
         <>
-          <div className="hand-dock-actions">
-            <button type="button" onClick={onToggleArmed} aria-pressed={!armed}>
-              <Icon name={armed ? "pause" : "play"} size={14} />
-              {armed ? "Pause gestures" : "Resume gestures"}
-            </button>
-            <button type="button" onClick={onStop}>
-              <Icon name="close" size={14} />
-              Stop camera
-            </button>
-          </div>
-          <p className="hand-dock-hint">
-            {target === "model"
-              ? "Palm: rotate · Pinch + move: zoom · Fist: reset"
-              : target === "engine"
-                ? "Swipe left / right: previous / next engine stroke"
-                : "Swipe left / right: previous / next session visual"}
-          </p>
+          {open && (
+            <div className="hand-dock-actions">
+              <button
+                type="button"
+                onClick={onToggleArmed}
+                aria-pressed={!armed}
+                aria-label={armed ? "Pause gestures" : "Resume gestures"}
+              >
+                <Icon name={armed ? "pause" : "play"} size={14} />
+                {armed ? "Pause gestures" : "Resume gestures"}
+              </button>
+              <button type="button" onClick={onStop}>
+                <Icon name="close" size={14} />
+                Stop camera
+              </button>
+            </div>
+          )}
+          {open && (
+            <p className="hand-dock-hint">
+              {target === "model"
+                ? "Palm: rotate · Pinch + move: zoom · Fist: reset"
+                : target === "engine"
+                  ? "Swipe left / right: previous / next engine stroke"
+                  : "Swipe left / right: previous / next session visual"}
+            </p>
+          )}
           {pendingTitle && !processing && (
             <div className="hand-approval">
               <Icon name="check" size={15} />
               <div>
-                <strong>Hold a thumbs-up to show</strong>
-                <span>{pendingTitle}</span>
+                <strong>
+                  {open ? "Hold a thumbs-up to show" : "Thumbs-up to show"}
+                </strong>
+                <span title={pendingTitle}>{pendingTitle}</span>
               </div>
             </div>
           )}
           {feedback && (
-            <p className="hand-feedback" role="status">
+            <p
+              className="hand-feedback"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              title={feedback}
+            >
               {feedback}
             </p>
           )}

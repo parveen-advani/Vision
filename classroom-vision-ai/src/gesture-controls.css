@@ -62,7 +62,7 @@
   background: #365d42;
   color: white;
 }
-.hand-dock-top > div {
+.hand-dock-status {
   flex: 1;
   min-width: 0;
 }
@@ -88,6 +88,76 @@
 }
 .hand-dock-top button:hover {
   background: #eaf0e1;
+}
+.hand-dock-top button:focus-visible {
+  outline: 2px solid #365d40;
+  outline-offset: -2px;
+}
+.hand-dock-quick-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+.hand-dock:not(.is-open) {
+  width: 280px;
+  border-radius: 10px;
+  box-shadow: 0 4px 18px #233c261a;
+}
+.hand-dock:not(.is-open) .hand-dock-top {
+  gap: 5px;
+  padding: 6px 8px;
+}
+.hand-dock:not(.is-open) .hand-dock-icon {
+  width: 28px;
+  height: 30px;
+  border-radius: 6px;
+}
+.hand-dock:not(.is-open) .hand-dock-top strong {
+  font-size: 11px;
+  line-height: 1.35;
+}
+.hand-dock:not(.is-open) .hand-dock-description {
+  display: none;
+}
+.hand-dock:not(.is-open) .hand-dock-top button {
+  width: 32px;
+  height: 34px;
+  padding: 0;
+  flex-shrink: 0;
+  color: #36583d;
+}
+.hand-dock:not(.is-open) .hand-dock-top button[aria-pressed="true"] {
+  background: #e5eddb;
+}
+.hand-dock:not(.is-open) .hand-approval {
+  gap: 6px;
+  padding: 7px 10px;
+}
+.hand-dock:not(.is-open) .hand-approval > div {
+  min-width: 0;
+}
+.hand-dock:not(.is-open) .hand-approval span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.hand-dock:not(.is-open) .hand-feedback {
+  padding: 0 10px 7px;
+  border-top: 0;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hand-dock:not(.is-open) .hand-approval + .hand-feedback {
+  padding-top: 5px;
+}
+.projector-mode .hand-dock:not(.is-open) {
+  top: 160px;
+  right: 24px;
+  bottom: auto;
 }
 .hand-dock-details {
   max-height: calc(100dvh - 265px);
@@ -262,6 +332,17 @@
   }
   .hand-dock.is-open {
     bottom: 12px;
+  }
+  .hand-dock:not(.is-open) {
+    top: auto;
+    right: 12px;
+    bottom: 106px;
+    width: min(280px, calc(100vw - 24px));
+  }
+  .projector-mode .hand-dock:not(.is-open) {
+    top: 150px;
+    right: 12px;
+    bottom: auto;
   }
   .hand-dock .camera-frame {
     max-height: 160px;
