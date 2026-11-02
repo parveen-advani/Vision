@@ -7,6 +7,6 @@
     "build": "npm --prefix classroom-vision-ai run build",
     "dev": "npm --prefix classroom-vision-ai run dev",
     "preview": "npm --prefix classroom-vision-ai run preview",
-    "test": "npm --prefix classroom-vision-ai run test:assistant"
+    "test": "npm --prefix classroom-vision-ai test"
   }
 }

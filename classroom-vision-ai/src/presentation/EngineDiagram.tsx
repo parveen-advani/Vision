@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import "./engine.css";
 
 const parts = [
@@ -85,11 +85,30 @@ const strokes = [
   },
 ];
 
-export function EngineDiagram() {
+export type EngineNavigation = {
+  id: number;
+  action: "next" | "previous" | "reset";
+};
+export function EngineDiagram({
+  navigation,
+}: {
+  navigation?: EngineNavigation;
+}) {
   const [selected, setSelected] = useState<PartId>("piston");
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const gradientId = useId().replace(/:/g, "");
+  const lastNavigation = useRef(navigation?.id);
+  useEffect(() => {
+    if (!navigation || navigation.id === lastNavigation.current) return;
+    lastNavigation.current = navigation.id;
+    setPlaying(false);
+    if (navigation.action === "reset") {
+      setStep(0);
+      setSelected("piston");
+    } else
+      setStep((value) => (value + (navigation.action === "next" ? 1 : 3)) % 4);
+  }, [navigation]);
   useEffect(() => {
     if (!playing) return;
     const timer = window.setInterval(

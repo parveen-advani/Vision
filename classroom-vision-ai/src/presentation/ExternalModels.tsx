@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { GestureState } from "../types";
 import type { ExternalModel } from "./types";
+import {
+  useSketchfabHandControls,
+  type SketchfabCameraApi,
+} from "./useSketchfabHandControls";
 import "./external-models.css";
 
 export const featuredEngine: ExternalModel = {
@@ -14,22 +19,10 @@ export const featuredEngine: ExternalModel = {
   animated: true,
 };
 
-interface ViewerApi {
+interface ViewerApi extends SketchfabCameraApi {
   start: () => void;
   addEventListener: (event: string, callback: () => void) => void;
   removeEventListener?: (event: string, callback: () => void) => void;
-  setEnableCameraConstraints?: (enabled: boolean) => void;
-  getCameraLookAt?: (
-    callback: (
-      error: unknown,
-      camera: { position: number[]; target: number[] },
-    ) => void,
-  ) => void;
-  setCameraLookAt?: (
-    position: number[],
-    target: number[],
-    duration: number,
-  ) => void;
 }
 interface ViewerClient {
   init: (
@@ -70,13 +63,28 @@ function loadViewer() {
 export function ModelViewer({
   model,
   onClose,
+  gesture,
+  gestureEnabled = false,
+  resetToken = 0,
 }: {
   model: ExternalModel;
   onClose: () => void;
+  gesture?: GestureState;
+  gestureEnabled?: boolean;
+  resetToken?: number;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
+  const [cameraApi, setCameraApi] = useState<ViewerApi | null>(null);
+  const handControls = useSketchfabHandControls(
+    cameraApi,
+    frame,
+    gesture,
+    gestureEnabled,
+    resetToken,
+  );
+  const rebaseCamera = handControls.rebaseCamera;
   useEffect(() => {
     let active = true;
     let api: ViewerApi | undefined;
@@ -97,17 +105,36 @@ export function ModelViewer({
       previousAspect = aspect;
       if (Math.abs(distanceScale - 1) < 0.03) return;
       const viewer = api;
-      viewer.getCameraLookAt?.((error, camera) => {
-        if (!active || error || !camera) return;
-        // Preserve the framing horizontally when presentation mode makes the iframe taller.
-        const position = camera.position.map(
-          (value, index) =>
-            camera.target[index] +
-            (value - camera.target[index]) * distanceScale,
-        );
-        viewer.setEnableCameraConstraints?.(false);
-        viewer.setCameraLookAt?.(position, camera.target, 0.25);
-      });
+      try {
+        viewer.getCameraLookAt?.((error, camera) => {
+          if (
+            !active ||
+            error ||
+            !camera ||
+            !Array.isArray(camera.position) ||
+            !Array.isArray(camera.target) ||
+            camera.position.length !== 3 ||
+            camera.target.length !== 3 ||
+            ![...camera.position, ...camera.target].every(Number.isFinite)
+          )
+            return;
+          // Preserve the framing horizontally when presentation mode makes the iframe taller.
+          const position = camera.position.map(
+            (value, index) =>
+              camera.target[index] +
+              (value - camera.target[index]) * distanceScale,
+          );
+          try {
+            rebaseCamera({ position, target: camera.target });
+            viewer.setEnableCameraConstraints?.(false);
+            viewer.setCameraLookAt?.(position, camera.target, 0.25);
+          } catch {
+            // Native viewer controls remain usable if camera methods are unavailable.
+          }
+        });
+      } catch {
+        // Resizing must not interrupt the model if its camera API is unavailable.
+      }
     };
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
@@ -119,6 +146,7 @@ export function ModelViewer({
     });
     if (frame.current) observer.observe(frame.current);
     setState("loading");
+    setCameraApi(null);
     const timeout = window.setTimeout(() => {
       if (active) setState("error");
     }, 25000);
@@ -127,6 +155,7 @@ export function ModelViewer({
         ready = true;
         clearTimeout(timeout);
         setState("ready");
+        setCameraApi(api ?? null);
         refit();
       }
     };
@@ -165,9 +194,13 @@ export function ModelViewer({
       observer.disconnect();
       api?.removeEventListener?.("viewerready", onReady);
     };
-  }, [model.uid, retry]);
+  }, [model.uid, retry, rebaseCamera]);
   return (
-    <div className="external-viewer" data-viewer-state={state}>
+    <div
+      className="external-viewer"
+      data-viewer-state={state}
+      data-hand-controls={handControls.status}
+    >
       <div className="external-viewer-title">
         <div>
           <span>DETAILED 3D VIEW</span>
@@ -244,8 +277,12 @@ export function ModelViewer({
         </a>
       </div>
       <p className="external-controls-note">
-        Drag and zoom inside the viewer. Available animations and annotations
-        depend on the creator’s model.
+        {gestureEnabled && handControls.status === "ready"
+          ? "Palm: rotate. Pinch + move up/down: zoom. Fist: reset. Drag and zoom also work. "
+          : gestureEnabled && handControls.status === "unavailable"
+            ? "Hand controls are unavailable for this viewer. Drag and zoom inside the viewer. "
+            : "Drag and zoom inside the viewer. "}
+        Available animations and annotations depend on the creator’s model.
         {model.uid === featuredEngine.uid
           ? " This assembly shows the pistons, connecting rods and crankshaft."
           : ""}

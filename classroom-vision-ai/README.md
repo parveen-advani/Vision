@@ -48,7 +48,7 @@ from audience faces; the presenter or audience supplies a question.
 - Eight built-in Three.js concept models retain pointer, toolbar, keyboard and
   MediaPipe hand controls. Heavy 3D and document parsers load when needed.
 - Sketchfab uses the official hosted viewer with visible creator/license credit.
-  Viewer controls and animations depend on the creator's model; universal part
+  Native viewer controls and animations depend on the creator's model; universal part
   separation or semantic control of arbitrary models is not claimed.
 - Featured assembly: [Rigged 4-Cylinder Engine by david.gnzlv](https://sketchfab.com/3d-models/rigged-4-cylinder-engine-free-e14ebe68273d49a3becda6802270b4b0),
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It shows pistons,
@@ -83,16 +83,31 @@ Pause rotation
 Resume rotation
 ```
 
-## Gesture controls
+## Hands-free presentation
+
+Choose **Hand control** in the top bar and allow camera access once. The same
+camera stream keeps running when you enter **Present**. The floating control
+panel can be minimized; its pause/resume and stop controls remain accessible.
+Camera processing is local; hand control does not require an AI key.
 
 | Gesture | Action |
 | --- | --- |
-| Open palm | Rotate the 3D model by moving your hand |
-| Pinch | Zoom emphasis |
-| Point | Projector spotlight follows your finger |
-| Fist | Reset model view |
-| Swipe right | Next model |
-| Swipe left | Previous model |
+| Open palm, move slowly | Rotate a built-in or detailed Sketchfab 3D model |
+| Hold a pinch, move up / down | Zoom in / out; release keeps the chosen view |
+| Point | Move a spotlight across the presentation without rotating the model |
+| Hold a fist briefly | Reset the 3D view, or return the engine walkthrough to intake |
+| Quick sideways swipe | Next/previous built-in model, engine stroke, or saved session visual |
+| Hold a thumbs-up | Show the pending copilot suggestion once it is ready |
+
+Lower or release your hand to hold the view. **Pause gestures** keeps the camera
+ready while freezing hand controls. **Stop camera** releases the camera and
+tracking resources, including a startup still waiting for permission. Good
+lighting and one clearly visible hand help tracking. Fast swipes navigate;
+slower palm movements rotate. Thumb-up and fist actions require a brief hold
+and release before they can fire again. Suggestions are never approved by an
+old held gesture. Detailed models use the official Sketchfab camera API; their
+native mouse/touch controls still work. Geometry/part separation depends on
+the model and is not controlled universally by gestures.
 
 ## Run frontend locally
 
@@ -115,7 +130,7 @@ Local frontend configuration is in `.env.development.local`, with
 `VITE_AI_API_URL=http://127.0.0.1:8000`. No OpenAI API key is required for the
 built-in command parser. Service logs are in the parent `.local-run` folder.
 
-Open **Hands-free model controls** to start the camera, or choose **Listen to the presentation** for speech. Each asks for its browser permission only when started.
+Use **Hand control** in the header to start the camera, or choose **Listen to the presentation** for speech. Each asks for its browser permission only when started.
 
 ## Production build
 
@@ -250,7 +265,7 @@ Run the frontend again with `npm run dev`.
 
 1. Connect laptop to projector or smart board.
 2. Open the app in Chrome.
-3. Choose **Listen to the presentation**; open **Hands-free model controls** if you want camera gestures.
+3. Choose **Listen to the presentation**; choose **Hand control** if you want camera gestures.
 4. Stand in front of the laptop camera.
 5. Say “Show human heart” or “Show OSI model”.
 6. Use open palm, pinch, point, fist, and swipe gestures to control the 3D board.

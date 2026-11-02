@@ -77,20 +77,10 @@ function SceneRig({
   }, [transform]);
   useFrame((_, delta) => {
     if (!group.current) return;
-    const liveGesture =
-      gesture.active &&
-      (gesture.name === "open-palm" || gesture.name === "point");
-    if (!transform.paused && !liveGesture)
-      autoRotation.current += Math.min(delta, 0.1) * 0.075;
-    const x =
-      transform.rotationX +
-      (liveGesture ? (gesture.y - 0.5) * Math.PI * 0.85 : 0);
-    const y =
-      transform.rotationY +
-      autoRotation.current +
-      (liveGesture ? (0.5 - gesture.x) * Math.PI * 1.15 : 0);
-    const gestureScale = gesture.active && gesture.name === "pinch" ? 1.18 : 1;
-    const scale = Math.max(0.58, Math.min(1.9, transform.zoom * gestureScale));
+    if (!transform.paused) autoRotation.current += Math.min(delta, 0.1) * 0.075;
+    const x = transform.rotationX;
+    const y = transform.rotationY + autoRotation.current;
+    const scale = Math.max(0.58, Math.min(1.9, transform.zoom));
     group.current.rotation.x = THREE.MathUtils.damp(
       group.current.rotation.x,
       x,
@@ -142,7 +132,6 @@ export function ProjectionStage({
     startY: number;
     engaged: boolean;
   } | null>(null);
-  const showSpotlight = gesture.active && gesture.name === "point";
   const title = visual.id === "heart" ? "Human heart" : visual.shortTitle;
   return (
     <section
@@ -263,15 +252,6 @@ export function ProjectionStage({
           {Math.round(transform.zoom * 100)}%
         </div>
         <span className="stage-model-note">Illustrative model</span>
-        {showSpotlight && (
-          <div
-            className="gesture-spotlight"
-            style={{
-              left: `${Math.round(gesture.x * 100)}%`,
-              top: `${Math.round(gesture.y * 100)}%`,
-            }}
-          />
-        )}
       </div>
       {children}
     </section>

@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { Header } from "./components/Header";
-import { GestureCamera } from "./components/GestureCamera";
+import { HandControlDock } from "./components/HandControlDock";
 import { ControlPanel } from "./components/ControlPanel";
 import { LibraryPanel } from "./components/LibraryPanel";
 import { CommandHistory } from "./components/CommandHistory";
@@ -37,11 +37,13 @@ import {
 } from "./data/visualLibrary";
 import { useHandTracking } from "./hooks/useHandTracking";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
+import { gestureMotion } from "./utils/handMotion";
 import { interpretWithApi } from "./utils/intent";
 import type {
   CommandAction,
   CommandLogItem,
   IntentResult,
+  GestureState,
   ModelTransform,
   VisualId,
 } from "./types";
@@ -100,6 +102,15 @@ export default function App() {
   const [processing, setProcessing] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [handPanelOpen, setHandPanelOpen] = useState(false);
+  const [gestureArmed, setGestureArmed] = useState(true);
+  const [handFeedback, setHandFeedback] = useState("");
+  const [externalResetToken, setExternalResetToken] = useState(0);
+  const [engineNavigation, setEngineNavigation] = useState<{
+    id: number;
+    action: "next" | "previous" | "reset";
+  }>();
+  const previousHand = useRef<GestureState | null>(null);
   const commandIdRef = useRef(0);
   const lastSpeechIdRef = useRef(0);
   const lastGestureIdRef = useRef(0);
@@ -112,6 +123,24 @@ export default function App() {
     session.context.language === "hi" ? "hi-IN" : "en-IN",
   );
   const hand = useHandTracking();
+  const controlsActive =
+    hand.enabled && gestureArmed && !helpOpen && !libraryOpen;
+  const activeGesture = controlsActive
+    ? hand.gesture
+    : { ...hand.gesture, active: false };
+  const engineBoard =
+    boardMode === "concept" && session.activeCard?.plan.kind === "engine";
+  const startHandControl = () => {
+    setHandPanelOpen(true);
+    setGestureArmed(true);
+    void hand.start();
+  };
+  const stopHandControl = () => {
+    setGestureArmed(false);
+    previousHand.current = null;
+    hand.stop();
+    if (!handPanelOpen) document.getElementById("hand-control-toggle")?.focus();
+  };
   const nativeBoard =
     boardMode === "model" ||
     (boardMode === "concept" && session.activeCard?.plan.kind === "model");
@@ -309,23 +338,103 @@ export default function App() {
   }, [handleTeacherCommand, speech.lastFinal, session.hear, nativeBoard]);
 
   useEffect(() => {
-    if (
-      !nativeBoard ||
-      !hand.lastEvent ||
-      hand.lastEvent.id === lastGestureIdRef.current
-    )
+    previousHand.current = null;
+  }, [boardMode, activeVisualId, session.activeCard?.id, controlsActive]);
+  useEffect(() => {
+    const previous = previousHand.current;
+    previousHand.current = controlsActive ? hand.gesture : null;
+    if (!controlsActive || !nativeBoard) return;
+    const motion = gestureMotion(previous, hand.gesture);
+    if (!motion.yaw && !motion.pitch && motion.zoomFactor === 1) return;
+    setTransform((current) => ({
+      ...current,
+      paused: true,
+      rotationY: current.rotationY + motion.yaw,
+      rotationX: Math.max(
+        -Math.PI / 2,
+        Math.min(Math.PI / 2, current.rotationX + motion.pitch),
+      ),
+      zoom: Math.max(0.62, Math.min(1.8, current.zoom * motion.zoomFactor)),
+    }));
+  }, [hand.gesture, controlsActive, nativeBoard]);
+
+  useEffect(() => {
+    const event = hand.lastEvent;
+    if (!event || event.id === lastGestureIdRef.current) return;
+    // Always consume, even on a board that does not support this gesture.
+    lastGestureIdRef.current = event.id;
+    if (!controlsActive || Date.now() - event.timestamp > 1500) return;
+    if (event.name === "thumbs-up") {
+      if (session.suggestion && !session.processing) {
+        session.showCard(session.suggestion);
+        setHandFeedback("Suggestion shown on the board.");
+        document
+          .getElementById("presentation-board")
+          ?.scrollIntoView({ block: "start" });
+      } else
+        setHandFeedback(
+          session.processing
+            ? "The next visual is still being prepared."
+            : "No suggestion is waiting to be shown.",
+        );
       return;
-    lastGestureIdRef.current = hand.lastEvent.id;
-    if (hand.lastEvent.name === "swipe-right") {
-      applyAction("next", undefined, "Gesture: swipe right", 0.9);
     }
-    if (hand.lastEvent.name === "swipe-left") {
-      applyAction("previous", undefined, "Gesture: swipe left", 0.9);
+    if (event.name === "fist") {
+      if (nativeBoard)
+        applyAction("reset", undefined, "Gesture: fist reset", 1);
+      else if (boardMode === "external")
+        setExternalResetToken((value) => value + 1);
+      else if (engineBoard)
+        setEngineNavigation({ id: event.id, action: "reset" });
+      else return;
+      setHandFeedback("View reset.");
+      return;
     }
-    if (hand.lastEvent.name === "fist") {
-      applyAction("reset", undefined, "Gesture: fist reset", 0.9);
+    if (event.name !== "swipe-left" && event.name !== "swipe-right") return;
+    const action = event.name === "swipe-right" ? "next" : "previous";
+    if (nativeBoard) {
+      setBoardMode("model");
+      applyAction(action, undefined, "Gesture: " + event.name, 1);
+      setHandFeedback(action === "next" ? "Next model." : "Previous model.");
+    } else if (engineBoard) {
+      setEngineNavigation({ id: event.id, action });
+      setHandFeedback(
+        action === "next" ? "Next engine stroke." : "Previous engine stroke.",
+      );
+    } else if (session.cards.length) {
+      const index = session.cards.findIndex(
+        (card) => card.id === session.activeCard?.id,
+      );
+      const next = index < 0 ? 0 : index + (action === "next" ? 1 : -1);
+      if (next >= 0 && next < session.cards.length) {
+        session.showCard(session.cards[next]);
+        setBoardMode("concept");
+        setHandFeedback("Showing " + session.cards[next].plan.title);
+      } else
+        setHandFeedback(
+          action === "next"
+            ? "This is the latest session visual."
+            : "This is the first session visual.",
+        );
     }
-  }, [applyAction, hand.lastEvent, nativeBoard]);
+  }, [
+    hand.lastEvent,
+    controlsActive,
+    nativeBoard,
+    boardMode,
+    engineBoard,
+    applyAction,
+    session.suggestion,
+    session.processing,
+    session.cards,
+    session.activeCard,
+    session.showCard,
+  ]);
+  useEffect(() => {
+    if (!handFeedback) return;
+    const timer = window.setTimeout(() => setHandFeedback(""), 4500);
+    return () => window.clearTimeout(timer);
+  }, [handFeedback]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -413,13 +522,21 @@ export default function App() {
       <div className="workspace">
         <Header
           projectorMode={projectorMode}
-          onToggleProjector={() =>
-            applyAction("projector", undefined, "Button: projector mode", 1)
-          }
+          onToggleProjector={() => {
+            if (!projectorMode) setHandPanelOpen(false);
+            applyAction("projector", undefined, "Button: projector mode", 1);
+          }}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenLibrary={() => setLibraryOpen(true)}
           sessionActive={speech.listening || hand.enabled}
           libraryOpen={libraryOpen}
+          handEnabled={hand.enabled}
+          handLoading={hand.loading}
+          onHandControl={() => {
+            if (hand.enabled || hand.loading)
+              setHandPanelOpen((value) => !value);
+            else startHandControl();
+          }}
         />
         <main id="main-workspace" className="workspace-content" tabIndex={-1}>
           <div className="workspace-intro">
@@ -444,6 +561,8 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   stopListening();
+                  stopHandControl();
+                  setHandPanelOpen(false);
                   session.reset();
                   setBoardMode("welcome");
                 }}
@@ -472,6 +591,9 @@ export default function App() {
               {boardMode === "external" && externalModel && (
                 <ModelViewer
                   model={externalModel}
+                  gesture={activeGesture}
+                  gestureEnabled={controlsActive}
+                  resetToken={externalResetToken}
                   onClose={() =>
                     setBoardMode(session.activeCard ? "concept" : "welcome")
                   }
@@ -480,19 +602,20 @@ export default function App() {
               {boardMode === "concept" && session.activeCard && (
                 <ConceptBoard
                   card={session.activeCard}
+                  engineNavigation={engineNavigation}
                   onDetailedModel={() => showExternal(featuredEngine)}
                   model={
                     <Suspense
                       fallback={
                         <div className="model-loading" role="status">
-                          Opening the interactive model?
+                          Opening the interactive model...
                         </div>
                       }
                     >
                       <ProjectionStage
                         visual={activeVisual}
                         transform={transform}
-                        gesture={hand.gesture}
+                        gesture={activeGesture}
                         projectorMode={projectorMode}
                         onRotate={handleRotate}
                       >
@@ -513,14 +636,14 @@ export default function App() {
                   <Suspense
                     fallback={
                       <div className="model-loading" role="status">
-                        Opening the interactive model?
+                        Opening the interactive model...
                       </div>
                     }
                   >
                     <ProjectionStage
                       visual={activeVisual}
                       transform={transform}
-                      gesture={hand.gesture}
+                      gesture={activeGesture}
                       projectorMode={projectorMode}
                       onRotate={handleRotate}
                     >
@@ -566,7 +689,7 @@ export default function App() {
                     </section>
                     <TeacherAssistant
                       visual={activeVisual}
-                      gesture={hand.gesture}
+                      gesture={activeGesture}
                       lastIntent={lastIntent}
                       onSubmitCommand={handleTeacherCommand}
                       processing={processing}
@@ -630,27 +753,28 @@ export default function App() {
                 speech={{ ...speech, stop: stopListening }}
                 onModelSelect={showExternal}
               />
-              <details className="gesture-disclosure">
-                <summary>
-                  <Icon name="hand" size={16} />
-                  Hands-free model controls
-                  <Icon name="chevron-down" size={14} />
-                </summary>
-                <p>
-                  Control built-in 3D models with hand gestures. External
-                  viewers have their own controls.
-                </p>
-                <GestureCamera
-                  videoRef={hand.videoRef}
-                  canvasRef={hand.canvasRef}
-                  enabled={hand.enabled}
-                  loading={hand.loading}
-                  error={hand.error}
-                  gesture={hand.gesture}
-                  onStart={hand.start}
-                  onStop={hand.stop}
-                />
-              </details>
+              <section className="hand-access-card">
+                <Icon name="hand" size={25} />
+                <div>
+                  <h3>Step away from the laptop.</h3>
+                  <p>
+                    Use your hand to rotate and zoom 3D models, or approve a
+                    visual with a thumbs-up.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (hand.enabled) setHandPanelOpen(true);
+                      else startHandControl();
+                    }}
+                  >
+                    <Icon name="camera" size={14} />
+                    {hand.enabled
+                      ? "Open hand controls"
+                      : "Enable hand control"}
+                  </button>
+                </div>
+              </section>
             </aside>
           </div>
           <button
@@ -674,6 +798,42 @@ export default function App() {
           </footer>
         </main>
       </div>
+      <HandControlDock
+        open={handPanelOpen}
+        onToggle={() => setHandPanelOpen((value) => !value)}
+        armed={gestureArmed}
+        onToggleArmed={() => setGestureArmed((value) => !value)}
+        target={
+          nativeBoard || boardMode === "external"
+            ? "model"
+            : engineBoard
+              ? "engine"
+              : "session"
+        }
+        pendingTitle={session.suggestion?.plan.title}
+        processing={session.processing}
+        feedback={handFeedback}
+        videoRef={hand.videoRef}
+        canvasRef={hand.canvasRef}
+        enabled={hand.enabled}
+        loading={hand.loading}
+        error={hand.error}
+        gesture={hand.gesture}
+        onStart={startHandControl}
+        onStop={stopHandControl}
+      />
+      {controlsActive &&
+        hand.gesture.active &&
+        hand.gesture.name === "point" && (
+          <div
+            className="presenter-pointer"
+            aria-hidden="true"
+            style={{
+              left: `clamp(20px, ${(1 - hand.gesture.x) * 100}%, calc(100% - 20px))`,
+              top: `clamp(20px, ${hand.gesture.y * 100}%, calc(100% - 20px))`,
+            }}
+          />
+        )}
       <ShortcutDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
       <datalist id="sample-commands">
         {Array.from(

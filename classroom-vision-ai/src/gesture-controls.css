@@ -1,0 +1,272 @@
+.header-hand-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #cbd8c2;
+  border-radius: 7px;
+  background: #f1f5eb;
+  color: #365d3c;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 9px 12px;
+  min-height: 35px;
+}
+.header-hand-button:hover {
+  background: #e7efdf;
+}
+.header-hand-button[aria-pressed="true"] {
+  background: #e4efd9;
+  border-color: #84a16b;
+}
+.header-hand-dot {
+  width: 5px;
+  height: 5px;
+  background: #4d7b3e;
+  border-radius: 50%;
+}
+.hand-dock {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 318px;
+  z-index: 35;
+  background: #fdfefb;
+  border: 1px solid #c7d6bc;
+  border-radius: 12px;
+  box-shadow: 0 8px 38px #233c2626;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hand-dock.is-visible {
+  visibility: visible;
+  pointer-events: auto;
+}
+.hand-dock-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+}
+.hand-dock-icon {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 35px;
+  border-radius: 8px;
+  background: #edf2e5;
+  color: #527445;
+  flex-shrink: 0;
+}
+.hand-dock-icon.is-tracking {
+  background: #365d42;
+  color: white;
+}
+.hand-dock-top > div {
+  flex: 1;
+  min-width: 0;
+}
+.hand-dock-top strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.hand-dock-top span:not(.hand-dock-icon) {
+  display: block;
+  font-size: 9px;
+  line-height: 1.6;
+  color: #5d6e52;
+  margin-top: 3px;
+}
+.hand-dock-top button {
+  border: 0;
+  background: transparent;
+  padding: 7px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+}
+.hand-dock-top button:hover {
+  background: #eaf0e1;
+}
+.hand-dock-details {
+  max-height: calc(100dvh - 265px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid #e0e7d7;
+}
+.hand-dock .tool-card {
+  padding: 16px;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+}
+.hand-dock .camera-frame {
+  aspect-ratio: 16/10;
+}
+.hand-dock .tool-card-heading h3 {
+  font-size: 12px;
+}
+.hand-dock .tool-description,
+.hand-dock .tool-notice {
+  font-size: 11px;
+}
+.hand-dock .tool-secondary-button {
+  min-height: 36px;
+  font-size: 11px;
+}
+.hand-dock .gesture-guide {
+  font-size: 11px;
+}
+.hand-position-tip {
+  padding: 0 16px 16px;
+  color: #5f6e53;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.hand-dock-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 15px 10px;
+}
+.hand-dock-actions button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid #d6e0cc;
+  background: #f6f9f0;
+  border-radius: 5px;
+  font-size: 10px;
+}
+.hand-dock-actions button:first-child {
+  flex: 1;
+}
+.hand-dock-actions button:hover {
+  background: #e9f1df;
+}
+.hand-dock-hint {
+  padding: 0 15px 12px;
+  font-size: 9px;
+  line-height: 1.6;
+  color: #536b46;
+}
+.hand-approval {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 15px;
+  background: #edf3e5;
+  border-top: 1px solid #d4e0c8;
+  color: #3c5f35;
+}
+.hand-approval svg {
+  margin-top: 1px;
+}
+.hand-approval strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+}
+.hand-approval span {
+  display: block;
+  font-size: 10px;
+  line-height: 1.6;
+  margin-top: 4px;
+  max-height: 48px;
+  overflow: hidden;
+}
+.hand-feedback {
+  padding: 9px 15px;
+  border-top: 1px solid #e0e7d7;
+  font-size: 10px;
+  color: #4e6941;
+}
+.presenter-pointer {
+  position: fixed;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #4b7d43;
+  background: #b5d28038;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 7px #c5d9ad30,
+    0 0 15px #365d4244;
+  transform: translate(-50%, -50%);
+  z-index: 70;
+  pointer-events: none;
+}
+.presenter-pointer:after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #426a3a;
+  left: 12px;
+  top: 12px;
+}
+.hand-access-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: #f1f5e9;
+  border: 1px solid #d4e0c8;
+  border-radius: 9px;
+  padding: 16px;
+}
+.hand-access-card > svg {
+  color: #5e7d4e;
+}
+.hand-access-card > div {
+  flex: 1;
+}
+.hand-access-card h3 {
+  font-size: 12px;
+  font-weight: 500;
+}
+.hand-access-card p {
+  font-size: 10px;
+  line-height: 1.7;
+  color: #5f7152;
+  margin-top: 5px;
+}
+.hand-access-card button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 10px;
+  border: 1px solid #aebf9c;
+  background: white;
+  border-radius: 5px;
+  color: #45633b;
+  margin-top: 10px;
+}
+@media (max-width: 760px) {
+  .hand-dock {
+    right: 12px;
+    bottom: 12px;
+    width: min(318px, calc(100vw - 24px));
+  }
+  .header-hand-button {
+    padding: 8px;
+    gap: 5px;
+    font-size: 10px;
+  }
+  .header-hand-button span:first-of-type {
+    display: none;
+  }
+  .hand-dock.is-open {
+    bottom: 12px;
+  }
+  .hand-dock .camera-frame {
+    max-height: 160px;
+  }
+  .hand-dock-details {
+    max-height: calc(100dvh - 280px);
+  }
+}

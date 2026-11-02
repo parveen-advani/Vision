@@ -1,14 +1,18 @@
 export type VisualId =
-  | 'heart'
-  | 'osi'
-  | 'dna'
-  | 'solar'
-  | 'atom'
-  | 'cell'
-  | 'neural'
-  | 'waterCycle';
+  | "heart"
+  | "osi"
+  | "dna"
+  | "solar"
+  | "atom"
+  | "cell"
+  | "neural"
+  | "waterCycle";
 
-export type VisualCategory = 'biology' | 'computer-science' | 'physics' | 'earth-science';
+export type VisualCategory =
+  | "biology"
+  | "computer-science"
+  | "physics"
+  | "earth-science";
 
 export interface VisualEntry {
   id: VisualId;
@@ -23,22 +27,22 @@ export interface VisualEntry {
 }
 
 export type CommandAction =
-  | 'show'
-  | 'rotate-left'
-  | 'rotate-right'
-  | 'rotate-up'
-  | 'rotate-down'
-  | 'zoom-in'
-  | 'zoom-out'
-  | 'reset'
-  | 'next'
-  | 'previous'
-  | 'explode'
-  | 'focus'
-  | 'projector'
-  | 'pause'
-  | 'resume'
-  | 'none';
+  | "show"
+  | "rotate-left"
+  | "rotate-right"
+  | "rotate-up"
+  | "rotate-down"
+  | "zoom-in"
+  | "zoom-out"
+  | "reset"
+  | "next"
+  | "previous"
+  | "explode"
+  | "focus"
+  | "projector"
+  | "pause"
+  | "resume"
+  | "none";
 
 export interface IntentResult {
   visualId?: VisualId;
@@ -47,19 +51,20 @@ export interface IntentResult {
   transcript: string;
   response: string;
   keywords: string[];
-  source: 'local' | 'api' | 'ai';
+  source: "local" | "api" | "ai";
 }
 
 export type GestureName =
-  | 'idle'
-  | 'open-palm'
-  | 'point'
-  | 'pinch'
-  | 'fist'
-  | 'swipe-left'
-  | 'swipe-right'
-  | 'two-hands'
-  | 'unknown';
+  | "idle"
+  | "open-palm"
+  | "point"
+  | "pinch"
+  | "fist"
+  | "thumbs-up"
+  | "swipe-left"
+  | "swipe-right"
+  | "two-hands"
+  | "unknown";
 
 export interface GestureState {
   name: GestureName;

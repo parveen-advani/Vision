@@ -7,6 +7,9 @@ export function Header({
   onOpenLibrary,
   sessionActive,
   libraryOpen,
+  handEnabled,
+  handLoading,
+  onHandControl,
 }: {
   projectorMode: boolean;
   onToggleProjector: () => void;
@@ -14,6 +17,9 @@ export function Header({
   onOpenLibrary: () => void;
   sessionActive: boolean;
   libraryOpen: boolean;
+  handEnabled: boolean;
+  handLoading: boolean;
+  onHandControl: () => void;
 }) {
   return (
     <header className="app-header">
@@ -39,6 +45,26 @@ export function Header({
           {sessionActive ? "Session active" : "Ready to present"}
         </span>
         <span className="header-divider" />
+        <button
+          type="button"
+          id="hand-control-toggle"
+          className="header-hand-button"
+          onClick={onHandControl}
+          aria-pressed={handEnabled}
+          aria-label={
+            handEnabled
+              ? "Hand control settings"
+              : handLoading
+                ? "Camera startup settings"
+                : "Start hand control"
+          }
+        >
+          <Icon name="hand" size={17} />
+          <span>{handLoading ? "Starting…" : "Hand control"}</span>
+          {handEnabled && (
+            <span className="header-hand-dot" aria-hidden="true" />
+          )}
+        </button>
         <button
           className="icon-button help-button"
           type="button"

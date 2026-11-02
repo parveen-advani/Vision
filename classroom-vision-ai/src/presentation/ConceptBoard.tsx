@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "../components/Icon";
-import { EngineDiagram } from "./EngineDiagram";
+import { EngineDiagram, type EngineNavigation } from "./EngineDiagram";
 import type { SessionCard } from "./types";
 
 const kindLabels = {
@@ -16,11 +16,13 @@ export function ConceptBoard({
   model,
   onAsk,
   onDetailedModel,
+  engineNavigation,
 }: {
   card: SessionCard;
   model: ReactNode;
   onAsk: (message: string, trigger?: "simplify" | "deeper") => void;
   onDetailedModel?: () => void;
+  engineNavigation?: EngineNavigation;
 }) {
   const p = card.plan;
   const maxValue = Math.max(1, ...p.metrics.map((m) => Math.abs(m.value)));
@@ -54,7 +56,7 @@ export function ConceptBoard({
         )}
       </header>
       {p.kind === "model" && model}
-      {p.kind === "engine" && <EngineDiagram />}
+      {p.kind === "engine" && <EngineDiagram navigation={engineNavigation} />}
       {p.kind === "flow" && (
         <ol className="concept-flow">
           {p.steps.map((step, i) => (
