@@ -1,6 +1,22 @@
-# Classroom Vision AI
+# Vision — Teaching Studio
 
-A full-stack proof-of-concept for a Jarvis-style classroom assistant. It listens to a teacher, tracks hand gestures through the laptop camera, and updates a projector-ready 3D teaching board automatically.
+An interactive classroom workspace for exploring educational 3D models with
+voice commands, hand gestures, and direct controls. Present a model, explain its
+parts, and give the class a different perspective.
+
+## The teaching workspace
+
+- Find any of the eight models in the searchable library, or filter by subject.
+- Drag the model to rotate it. The toolbar controls zoom, animation, and separated parts.
+- Use **Voice commands** to speak or type, or click one of the suggested commands.
+- Start **Gesture control** when you want to use hand movements. The gesture guide explains each action.
+- Choose **Present lesson** for a focused classroom display; press Escape to return.
+- Press `?` to see keyboard shortcuts. Shortcuts pause while you type or focus a control.
+- Lesson notes explain the current model, and **Session history** keeps recent actions within reach.
+
+The interface includes a responsive model drawer, keyboard focus management,
+reduced-motion support, and locally served DM Sans fonts. Font licensing is in
+`public/fonts/OFL.txt`.
 
 ## What is included
 
@@ -59,6 +75,22 @@ npm run dev
 
 Open the URL shown by Vite, usually `http://localhost:5173`.
 
+### Windows launchers for this checkout
+
+From the parent `Vision` folder, double-click `start-vision.cmd` to start the
+frontend and FastAPI backend and open `http://127.0.0.1:5173`. Double-click
+`stop-vision.cmd` to stop the local services. Running the start launcher again
+reuses this project's existing services.
+
+The launchers use the installed frontend dependencies and `backend/.venv`.
+Local frontend configuration is in `.env.development.local`, with
+`VITE_AI_API_URL=http://127.0.0.1:8000`. No OpenAI API key is required for the
+built-in command parser. Service logs are in the parent `.local-run` folder.
+
+Click **Start Camera** or **Start Listening** in the browser to enable those
+features and grant permissions. Manual commands work without camera or
+microphone access.
+
 ## Production build
 
 ```bash
@@ -68,11 +100,24 @@ npm run preview
 
 ## Deploy to Vercel
 
-1. Push this folder to GitHub or import the ZIP into Vercel.
-2. Framework preset: `Vite`
-3. Build command: `npm run build`
-4. Output directory: `dist`
-5. Add environment variables only if you want optional OpenAI interpretation:
+The repository root now contains `vercel.json` and an API entry point, so the
+existing Vercel project can keep its Root Directory at the repository root.
+The versioned configuration installs the nested app with `npm ci`, builds it,
+and publishes only `classroom-vision-ai/dist`. `/api/interpret` runs as a Vercel
+Function using the shared handler in this folder.
+
+Push source changes to the project's connected production branch to deploy.
+Do not deploy the repository files as an unbuilt static directory.
+
+If creating a separate Vercel project with Root Directory set to
+`classroom-vision-ai`, use Framework `Vite`, Build Command `npm run build`,
+Output Directory `dist`, and Install Command `npm ci`.
+
+Leave `VITE_AI_API_URL` unset on Vercel so commands use the same-origin
+`/api/interpret` function. The optional local FastAPI URL belongs only in
+`.env.development.local` and must not be bundled into a production build.
+
+Add environment variables only if you want optional OpenAI interpretation:
 
 ```bash
 OPENAI_API_KEY=your_key_here
@@ -91,7 +136,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-Then create `.env.local` in the project root:
+Then create `.env.development.local` in the project root:
 
 ```bash
 VITE_AI_API_URL=http://localhost:8000

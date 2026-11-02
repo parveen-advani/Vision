@@ -1,39 +1,49 @@
-import { useMemo } from 'react';
-import type { GestureState, IntentResult, VisualEntry } from '../types';
+import { Icon } from "./Icon";
+import type { GestureState, IntentResult, VisualEntry } from "../types";
 
-export function TeacherAssistant({
-  visual,
-  gesture,
-  lastIntent,
-}: {
+type TeacherAssistantProps = {
   visual: VisualEntry;
   gesture: GestureState;
   lastIntent: IntentResult | null;
-}) {
-  const guidance = useMemo(() => {
-    if (gesture.active && gesture.name !== 'idle' && gesture.name !== 'unknown') {
-      return gesture.message;
-    }
-    if (lastIntent?.response) {
-      return lastIntent.response;
-    }
-    return `Ready to teach ${visual.shortTitle}. Say “show OSI model”, “zoom in”, or “explode parts”.`;
-  }, [gesture, lastIntent, visual.shortTitle]);
+  onSubmitCommand?: (command: string) => void;
+  processing?: boolean;
+};
 
+export function TeacherAssistant({
+  visual,
+  onSubmitCommand,
+  processing = false,
+}: TeacherAssistantProps) {
   return (
-    <aside className="assistant-card" aria-live="polite">
-      <div className="assistant-orb">
-        <span />
+    <div className="assistant-hints">
+      <span className="assistant-hints-label">
+        <Icon name="command" size={15} />
+        Try a command
+      </span>
+      <div
+        className="assistant-prompts"
+        role="group"
+        aria-label="Suggested commands"
+      >
+        {visual.teacherPrompts.slice(0, 3).map((prompt) =>
+          onSubmitCommand ? (
+            <button
+              className="suggestion-chip"
+              type="button"
+              key={prompt}
+              onClick={() => onSubmitCommand(prompt)}
+              disabled={processing}
+            >
+              {prompt}
+              <Icon name="arrow-right" size={13} />
+            </button>
+          ) : (
+            <span className="suggestion-chip" key={prompt}>
+              {prompt}
+            </span>
+          ),
+        )}
       </div>
-      <div>
-        <p className="eyebrow">Jarvis-style assistant</p>
-        <strong>{guidance}</strong>
-        <div className="assistant-prompts">
-          {visual.teacherPrompts.slice(0, 3).map((prompt) => (
-            <span key={prompt}>{prompt}</span>
-          ))}
-        </div>
-      </div>
-    </aside>
+    </div>
   );
 }

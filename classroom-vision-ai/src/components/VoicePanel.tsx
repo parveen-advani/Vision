@@ -1,13 +1,29 @@
-import { FormEvent, useState } from 'react';
+import { useId, useState } from "react";
+import type { FormEvent } from "react";
+import { Icon } from "./Icon";
 
 type VoicePanelProps = {
   supported: boolean;
   listening: boolean;
   interimTranscript: string;
   speechError: string | null;
+  processing?: boolean;
   onStart: () => void;
   onStop: () => void;
   onSubmitCommand: (command: string) => void;
+};
+
+const speechErrorMessages: Record<string, string> = {
+  "not-allowed":
+    "Microphone access is blocked. Allow it in your browser settings, then try again.",
+  "service-not-allowed":
+    "Voice recognition is unavailable in this browser. You can type a command below.",
+  "audio-capture":
+    "No microphone was found. Connect one, or type a command below.",
+  network:
+    "Voice recognition could not connect. Try again, or type a command below.",
+  "no-speech": "No speech was detected. Try speaking again.",
+  aborted: "Listening stopped. Start again whenever you are ready.",
 };
 
 export function VoicePanel({
@@ -15,62 +31,103 @@ export function VoicePanel({
   listening,
   interimTranscript,
   speechError,
+  processing = false,
   onStart,
   onStop,
   onSubmitCommand,
 }: VoicePanelProps) {
-  const [manualCommand, setManualCommand] = useState('');
+  const [manualCommand, setManualCommand] = useState("");
+  const commandInputId = useId();
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const command = manualCommand.trim();
-    if (!command) return;
+    if (!command || processing) return;
     onSubmitCommand(command);
-    setManualCommand('');
+    setManualCommand("");
   };
 
   return (
-    <article className="panel voice-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Voice AI</p>
-          <h3>Teacher microphone</h3>
+    <section
+      className="tool-card voice-panel"
+      aria-labelledby={commandInputId + "-heading"}
+    >
+      <div className="tool-card-heading">
+        <h3 id={commandInputId + "-heading"}>
+          <Icon name="mic" size={17} />
+          Voice commands
+        </h3>
+        <span className={"tool-status" + (listening ? " is-active" : "")}>
+          {listening ? "Listening" : supported ? "Ready" : "Unavailable"}
+        </span>
+      </div>
+
+      <p className="tool-description">
+        Change the model or adjust the view with your voice.
+      </p>
+      <button
+        className={"tool-primary-button" + (listening ? " is-active" : "")}
+        type="button"
+        onClick={listening ? onStop : onStart}
+        disabled={!supported && !listening}
+        aria-pressed={listening}
+      >
+        <Icon name={listening ? "mic-off" : "mic"} size={17} />
+        {listening ? "Stop listening" : "Start listening"}
+      </button>
+
+      {(listening || interimTranscript) && (
+        <div
+          className="voice-transcript"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span>
+            {interimTranscript ? "Hearing you" : "Listening for a command"}
+          </span>
+          <p>{interimTranscript || "Try saying “show the solar system”."}</p>
         </div>
-        <span className={`status-dot ${listening ? 'status-dot--live' : ''}`} />
-      </div>
+      )}
+      {!supported && (
+        <p className="tool-notice">
+          Voice recognition is unavailable here. Type a command to continue.
+        </p>
+      )}
+      {speechError && (
+        <p className="tool-notice tool-notice--error" role="alert">
+          {speechErrorMessages[speechError] ?? speechError}
+        </p>
+      )}
 
-      <div className="meter" aria-hidden="true">
-        {Array.from({ length: 18 }, (_, index) => (
-          <span key={index} style={{ animationDelay: `${index * 45}ms` }} className={listening ? 'meter-bar live' : 'meter-bar'} />
-        ))}
-      </div>
-
-      <div className="button-row">
-        <button className="primary-button" type="button" onClick={listening ? onStop : onStart}>
-          {listening ? 'Stop Listening' : 'Start Listening'}
-        </button>
-        <button className="ghost-button" type="button" onClick={() => onSubmitCommand('show human heart')}>
-          Demo Command
-        </button>
-      </div>
-
-      <div className="transcript-box">
-        <span>{listening ? 'Live transcript' : 'Transcript standby'}</span>
-        <p>{interimTranscript || 'Say: “Show OSI model”, “Zoom in”, “Explode the heart model”, or use the manual command below.'}</p>
-      </div>
-
-      {!supported && <p className="notice">Browser speech recognition is unavailable here. The manual command box still works.</p>}
-      {speechError && <p className="notice notice--error">{speechError}</p>}
-
-      <form className="manual-command" onSubmit={submit}>
-        <input
-          value={manualCommand}
-          onChange={(event) => setManualCommand(event.target.value)}
-          placeholder="Type a teacher command, e.g. show DNA double helix"
-          aria-label="Manual command"
-        />
-        <button type="submit">Send</button>
+      <form
+        className="manual-command-form"
+        onSubmit={submit}
+        aria-busy={processing}
+      >
+        <label className="manual-command-label" htmlFor={commandInputId}>
+          Or type a command
+        </label>
+        <div className="manual-command">
+          <input
+            id={commandInputId}
+            value={manualCommand}
+            onChange={(event) => setManualCommand(event.target.value)}
+            placeholder="Show the solar system"
+            aria-label="Manual command"
+            autoComplete="off"
+            list="sample-commands"
+          />
+          <button
+            type="submit"
+            disabled={!manualCommand.trim() || processing}
+            aria-label={processing ? "Sending command" : "Send command"}
+            title="Send command"
+          >
+            <Icon name={processing ? "clock" : "send"} size={17} />
+          </button>
+        </div>
       </form>
-    </article>
+    </section>
   );
 }

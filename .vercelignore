@@ -1,0 +1,12 @@
+.git/
+.local-run/
+**/node_modules/
+**/dist/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.tsbuildinfo
+**/.env.local
+**/.env.*.local
+classroom-vision-ai/vite.config.js
+classroom-vision-ai/vite.config.d.ts

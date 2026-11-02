@@ -1,5 +1,5 @@
-import { visualLibrary } from '../src/data/visualLibrary';
-import type { CommandAction, IntentResult, VisualId } from '../src/types';
+import { visualLibrary } from '../src/data/visualLibrary.js';
+import type { CommandAction, IntentResult, VisualId } from '../src/types.js';
 
 type RequestLike = {
   method?: string;

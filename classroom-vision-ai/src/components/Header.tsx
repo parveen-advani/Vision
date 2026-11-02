@@ -1,16 +1,63 @@
-export function Header({ projectorMode, onToggleProjector }: { projectorMode: boolean; onToggleProjector: () => void }) {
+import { Icon } from "./Icon";
+
+export function Header({
+  projectorMode,
+  onToggleProjector,
+  onOpenHelp,
+  onOpenLibrary,
+  sessionActive,
+  libraryOpen,
+}: {
+  projectorMode: boolean;
+  onToggleProjector: () => void;
+  onOpenHelp: () => void;
+  onOpenLibrary: () => void;
+  sessionActive: boolean;
+  libraryOpen: boolean;
+}) {
   return (
     <header className="app-header">
-      <div className="brand-mark" aria-hidden="true">
-        <span />
+      <div className="header-location">
+        <button
+          type="button"
+          className="mobile-menu"
+          onClick={onOpenLibrary}
+          aria-label="Open model library"
+          aria-expanded={libraryOpen}
+          aria-controls="model-library"
+        >
+          <Icon name="menu" size={19} />
+          <span>Models</span>
+        </button>
+        <span className="header-home">Workspace</span>
+        <Icon name="chevron-right" size={13} />
+        <span className="header-current">Teaching studio</span>
       </div>
-      <div className="brand-copy">
-        <p className="eyebrow">Classroom Vision AI</p>
-        <h1>Voice + Gesture Powered 3D Teaching Board</h1>
+      <div className="header-actions">
+        <span className="session-indicator">
+          <span className={"online-dot " + (sessionActive ? "is-live" : "")} />
+          {sessionActive ? "Session active" : "Ready to teach"}
+        </span>
+        <span className="header-divider" />
+        <button
+          className="icon-button help-button"
+          type="button"
+          onClick={onOpenHelp}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+        >
+          <Icon name="keyboard" size={19} />
+        </button>
+        <button
+          className="present-button"
+          onClick={onToggleProjector}
+          type="button"
+          aria-label={projectorMode ? "Exit Projector" : "Projector Mode"}
+        >
+          <Icon name={projectorMode ? "close" : "projector"} size={17} />
+          <span>{projectorMode ? "Exit presentation" : "Present lesson"}</span>
+        </button>
       </div>
-      <button className="ghost-button header-action" onClick={onToggleProjector} type="button">
-        {projectorMode ? 'Exit Projector' : 'Projector Mode'}
-      </button>
     </header>
   );
 }

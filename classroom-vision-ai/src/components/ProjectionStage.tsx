@@ -1,12 +1,47 @@
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Suspense, useMemo, useRef } from 'react';
-import * as THREE from 'three';
-import { EducationalModel } from './ModelScenes';
-import type { GestureState, ModelTransform, VisualEntry } from '../types';
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import * as THREE from "three";
+import { EducationalModel } from "./ModelScenes";
+import type { GestureState, ModelTransform, VisualEntry } from "../types";
 
-function GridFloor() {
-  const grid = useMemo(() => new THREE.GridHelper(6, 24, '#1bdcff', '#123047'), []);
-  return <primitive object={grid} position={[0, -1.35, 0]} />;
+const categoryNames = {
+  biology: "Biology",
+  "computer-science": "Computer science",
+  physics: "Physics",
+  "earth-science": "Earth science",
+};
+
+function CameraFraming({
+  visual,
+  exploded,
+}: {
+  visual: VisualEntry;
+  exploded: boolean;
+}) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return;
+    // Reserve room for annotation sprites and separated parts on narrow canvases.
+    const widths: Record<VisualEntry["id"], [number, number]> = {
+      heart: [4.45, 5],
+      osi: [3.2, 3.5],
+      dna: [2.4, 2.8],
+      solar: [3.7, 4.4],
+      atom: [3, 3.5],
+      cell: [3.8, 4.6],
+      neural: [3.3, 3.7],
+      waterCycle: [3.7, 4.1],
+    };
+    const width = widths[visual.id][exploded ? 1 : 0];
+    const aspect = size.width / Math.max(size.height, 1);
+    const distance =
+      width /
+        (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect) +
+      0.3;
+    camera.position.z = Math.max(4.8, distance);
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height, visual.id, exploded]);
+  return null;
 }
 
 function SceneRig({
@@ -19,39 +54,67 @@ function SceneRig({
   gesture: GestureState;
 }) {
   const group = useRef<THREE.Group>(null);
-  const halo = useRef<THREE.Mesh>(null);
-
-  useFrame(({ clock }, delta) => {
+  const autoRotation = useRef(0);
+  const previousTransform = useRef(transform);
+  const targetScale = useRef(new THREE.Vector3(1, 1, 1));
+  useEffect(() => {
+    autoRotation.current = 0;
+  }, [visual.id]);
+  useEffect(() => {
+    const previous = previousTransform.current;
+    if (
+      !transform.rotationX &&
+      !transform.rotationY &&
+      transform.zoom === 1 &&
+      !transform.exploded &&
+      (previous.rotationX ||
+        previous.rotationY ||
+        previous.zoom !== 1 ||
+        previous.exploded)
+    )
+      autoRotation.current = 0;
+    previousTransform.current = transform;
+  }, [transform]);
+  useFrame((_, delta) => {
     if (!group.current) return;
-
-    const liveGesture = gesture.active && (gesture.name === 'open-palm' || gesture.name === 'point');
-    const targetX = transform.rotationX + (liveGesture ? (gesture.y - 0.5) * Math.PI * 0.85 : 0);
-    const targetY = transform.rotationY + (liveGesture ? (0.5 - gesture.x) * Math.PI * 1.15 : 0);
-    const gestureScale = gesture.name === 'pinch' ? 1.18 : 1;
-    const targetScale = Math.max(0.58, Math.min(1.9, transform.zoom * gestureScale));
-
-    group.current.rotation.x = THREE.MathUtils.lerp(group.current.rotation.x, targetX, 1 - Math.exp(-delta * 5));
-    group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, targetY, 1 - Math.exp(-delta * 5));
-    group.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 1 - Math.exp(-delta * 4));
-
-    if (!transform.paused) {
-      group.current.rotation.y += delta * 0.18;
-    }
-
-    if (halo.current) {
-      halo.current.rotation.z = clock.elapsedTime * 0.08;
-    }
+    const liveGesture =
+      gesture.active &&
+      (gesture.name === "open-palm" || gesture.name === "point");
+    if (!transform.paused && !liveGesture)
+      autoRotation.current += Math.min(delta, 0.1) * 0.075;
+    const x =
+      transform.rotationX +
+      (liveGesture ? (gesture.y - 0.5) * Math.PI * 0.85 : 0);
+    const y =
+      transform.rotationY +
+      autoRotation.current +
+      (liveGesture ? (0.5 - gesture.x) * Math.PI * 1.15 : 0);
+    const gestureScale = gesture.active && gesture.name === "pinch" ? 1.18 : 1;
+    const scale = Math.max(0.58, Math.min(1.9, transform.zoom * gestureScale));
+    group.current.rotation.x = THREE.MathUtils.damp(
+      group.current.rotation.x,
+      x,
+      6,
+      delta,
+    );
+    group.current.rotation.y = THREE.MathUtils.damp(
+      group.current.rotation.y,
+      y,
+      6,
+      delta,
+    );
+    group.current.scale.lerp(
+      targetScale.current.setScalar(scale),
+      1 - Math.exp(-delta * 6),
+    );
   });
-
   return (
-    <group>
-      <mesh ref={halo} position={[0, 0, -0.16]} rotation={[0, 0, 0]}>
-        <torusGeometry args={[1.72, 0.006, 8, 192]} />
-        <meshBasicMaterial color="#37dfff" transparent opacity={0.28} />
-      </mesh>
-      <group ref={group}>
-        <EducationalModel visual={visual} exploded={transform.exploded} paused={transform.paused} />
-      </group>
+    <group ref={group}>
+      <EducationalModel
+        visual={visual}
+        exploded={transform.exploded}
+        paused={transform.paused}
+      />
     </group>
   );
 }
@@ -61,53 +124,156 @@ export function ProjectionStage({
   transform,
   gesture,
   projectorMode,
+  children,
+  onRotate,
 }: {
   visual: VisualEntry;
   transform: ModelTransform;
   gesture: GestureState;
   projectorMode: boolean;
+  children?: ReactNode;
+  onRotate?: (deltaYaw: number, deltaPitch: number) => void;
 }) {
-  const showSpotlight = gesture.active && gesture.name === 'point';
-  const spotlightStyle = {
-    left: `${Math.round(gesture.x * 100)}%`,
-    top: `${Math.round(gesture.y * 100)}%`,
-  };
-
+  const [dragging, setDragging] = useState(false);
+  const lastPointer = useRef<{
+    x: number;
+    y: number;
+    startX: number;
+    startY: number;
+    engaged: boolean;
+  } | null>(null);
+  const showSpotlight = gesture.active && gesture.name === "point";
+  const title = visual.id === "heart" ? "Human heart" : visual.shortTitle;
   return (
-    <section className={`projection-stage ${projectorMode ? 'projection-stage--wide' : ''}`}>
+    <section
+      className={`projection-stage ${projectorMode ? "projection-stage--wide" : ""}`}
+      aria-label={`${title} interactive model`}
+    >
       <div className="stage-chrome">
         <div>
-          <p className="eyebrow">Live smart board</p>
-          <h2>{visual.title}</h2>
-          <span>{visual.subtitle}</span>
+          <p className="eyebrow">
+            {categoryNames[visual.category]} <span aria-hidden="true">/</span>{" "}
+            3D exploration
+          </p>
+          <h2>{title}</h2>
         </div>
         <div className="stage-status">
-          <span className={transform.paused ? 'warn' : 'ok'}>{transform.paused ? 'Paused' : 'Animated'}</span>
-          <span>{transform.exploded ? 'Parts view' : 'Unified view'}</span>
+          <span className={transform.paused ? "warn" : "ok"}>
+            <i aria-hidden="true" />
+            {transform.paused ? "Paused" : "Animated"}
+          </span>
+          {transform.exploded && <span>Parts view</span>}
         </div>
       </div>
-
-      <div className="canvas-shell">
-        <Canvas camera={{ position: [0, 0.2, 4.2], fov: 45 }} dpr={[1, 1.8]}>
-          <color attach="background" args={["#030713"]} />
-          <fog attach="fog" args={["#030713", 5, 10]} />
-          <ambientLight intensity={0.7} />
-          <directionalLight position={[2.5, 4, 4]} intensity={1.55} />
-          <pointLight position={[-2, 1, 2]} color="#2ee8ff" intensity={1.8} />
-          <pointLight position={[2, -1, -2]} color="#826bff" intensity={1.1} />
+      <div
+        className={`canvas-shell${dragging ? " is-dragging" : ""}`}
+        style={{
+          cursor: onRotate ? (dragging ? "grabbing" : "grab") : undefined,
+          touchAction: onRotate ? "pan-y pinch-zoom" : undefined,
+        }}
+        onPointerDown={(event) => {
+          if (!onRotate || event.button !== 0 || !event.isPrimary) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          const engaged = event.pointerType !== "touch";
+          lastPointer.current = {
+            x: event.clientX,
+            y: event.clientY,
+            startX: event.clientX,
+            startY: event.clientY,
+            engaged,
+          };
+          setDragging(engaged);
+        }}
+        onPointerMove={(event) => {
+          if (!lastPointer.current || !onRotate) return;
+          const pointer = lastPointer.current;
+          if (!pointer.engaged) {
+            const dx = Math.abs(event.clientX - pointer.startX);
+            const dy = Math.abs(event.clientY - pointer.startY);
+            if (dx < 6 || dx <= dy) return;
+            pointer.engaged = true;
+            setDragging(true);
+          }
+          onRotate(
+            (event.clientX - pointer.x) * 0.008,
+            event.pointerType === "touch"
+              ? 0
+              : (event.clientY - pointer.y) * 0.006,
+          );
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+        }}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          lastPointer.current = null;
+          setDragging(false);
+        }}
+        onPointerCancel={() => {
+          lastPointer.current = null;
+          setDragging(false);
+        }}
+        onLostPointerCapture={() => {
+          lastPointer.current = null;
+          setDragging(false);
+        }}
+      >
+        <Canvas
+          shadows
+          camera={{ position: [0, 0.05, 4.8], fov: 42 }}
+          dpr={[1, 1.75]}
+          gl={{ antialias: true }}
+        >
+          <CameraFraming visual={visual} exploded={transform.exploded} />
+          <color attach="background" args={["#f6f5f0"]} />
+          <ambientLight intensity={1.05} />
+          <hemisphereLight args={["#fff9ee", "#b3c2b6", 1.7]} />
+          <directionalLight
+            position={[-3, 5, 5]}
+            intensity={2.4}
+            color="#fff8ef"
+          />
+          <directionalLight
+            position={[4, 1, 2]}
+            intensity={0.9}
+            color="#e9f0ec"
+          />
           <Suspense fallback={null}>
             <SceneRig visual={visual} transform={transform} gesture={gesture} />
-            <GridFloor />
           </Suspense>
         </Canvas>
-        <div className="hologram-scan" />
-        {showSpotlight && <div className="gesture-spotlight" style={spotlightStyle} />}
+        <div className="stage-orientation" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <path
+              d="M17 20V6M17 20L30 26M17 20L5 27"
+              stroke="#b3bdb0"
+              strokeWidth="1.5"
+            />
+            <circle cx="17" cy="20" r="2.5" fill="#657f68" />
+            <path
+              d="M15 8L17 5L19 8M27 23L31 26L27 27M8 24L4 27L8 28"
+              stroke="#657f68"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+        <div className="stage-caption">
+          {onRotate ? "Drag to rotate" : "Interactive 3D model"}
+          <span aria-hidden="true"> · </span>
+          {Math.round(transform.zoom * 100)}%
+        </div>
+        <span className="stage-model-note">Illustrative model</span>
+        {showSpotlight && (
+          <div
+            className="gesture-spotlight"
+            style={{
+              left: `${Math.round(gesture.x * 100)}%`,
+              top: `${Math.round(gesture.y * 100)}%`,
+            }}
+          />
+        )}
       </div>
-
-      <div className="model-explanation">
-        <strong>Teacher narration helper</strong>
-        <p>{visual.explanation}</p>
-      </div>
+      {children}
     </section>
   );
 }
